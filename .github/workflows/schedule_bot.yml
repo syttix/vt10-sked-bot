@@ -1,0 +1,53 @@
+name: VT-10 Schedule Bot
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_date:
+        description: "Optional YYYY-MM-DD date to test (sends ONLY to SkedBot email)"
+        required: false
+        default: ""
+      test_student:
+        description: "Optional student last name to preview in test mode (default: Hagemaster)"
+        required: false
+        default: "Hagemaster"
+
+jobs:
+  check-schedule:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run schedule parser and emailer
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          ROSTER_CSV_URL: ${{ secrets.ROSTER_CSV_URL }}
+          SIGNUP_FORM_URL: ${{ secrets.SIGNUP_FORM_URL }}
+          TEST_DATE: ${{ inputs.test_date }}
+          TEST_STUDENT: ${{ inputs.test_student }}
+        run: python bot.py
+
+      - name: Commit and push updated state.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add state.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Update processed schedule state"
+            git pull --rebase origin main
+            git push origin main
+          fi

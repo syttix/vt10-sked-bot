@@ -1,0 +1,341 @@
+
+{
+  "SOP": [
+    {
+      "q": "UNDER WHAT CONDITIONS ARE OVERWATER TRAINING FLIGHTS PROHIBITED? (COMTRAWINGSIXINST 3710.1)",
+      "a": "[3-2] Due to non-availability of anti-exposure suits in TW-6, overwater training flights are prohibited when the wind-chill corrected OAT is 32°F or below, or when the water temperature is 60°F or below in the operating area."
+    },
+    {
+      "q": "WHAT IS THE MINIMUM TAXI INTERVAL FOR TW-6 AIRCRAFT?",
+      "a": "[3-3] When taxiing as a single, minimum interval is 500 ft."
+    },
+    {
+      "q": "WHAT IS THE MINIMUM ALTITUDE TO BEGIN OCF TRAINING?",
+      "a": "[4-3] The minimum altitude to begin OCF training or a spin entry is 13,500 ft MSL. All recoveries shall be completed above 10,000 ft MSL."
+    },
+    {
+      "q": "WHAT IS THE PRESCRIBED COURSE OF ACTION IF A MEMBER OF THE AIRCREW DROPS THEIR EJECTION SEAT SAFETY PIN?",
+      "a": "Aft cockpit verifies ISS Mode selector in SOLO; aircrew who dropped pin SHALL keep hands above rail, then either:\n1. Notify Base Ops/Maintenance to bring a replacement pin (do NOT park under flight line apron). Unaffected crew safes their seat; once pin arrives, shut down, open canopy, and safe affected seat with new pin prior to retrieving dropped pin.\n2. If maintenance is unavailable, unaffected aircrew shuts down aircraft, unstraps, exits, removes their pin, and hands it to affected aircrew to pin their seat before retrieving the dropped pin (which then safes the unaffected seat)."
+    },
+    {
+      "q": "WHAT IS THE RECOMMENDED MINIMUM RUNWAY LENGTH FOR EMERGENCY FIELD SELECTION WHEN OPERATING BELOW 3,500 FT PRESSURE ALTITUDE? WHAT ABOUT ABOVE 3,500 FT PRESSURE ALTITUDE?",
+      "a": "[4-3] At aircraft commander's discretion: 3,000 ft below 3,500 ft PA; 4,000 ft above 3,500 ft PA."
+    },
+    {
+      "q": "WHEN SHALL EMERGENCY FUEL BE DECLARED?",
+      "a": "[4-3] Whenever usable fuel at the point of landing will be 150 pounds or less. Declare an emergency and report fuel remaining in minutes."
+    },
+    {
+      "q": "ARE ENGINE STARTS WITH THE PMU OFF AUTHORIZED?",
+      "a": "[4-2] PMU-off starts are NOT authorized for TW-6 aircraft, except for a qualified T-6A FCF pilot with prior coordination with T-6A Maintenance Control."
+    },
+    {
+      "q": "STALLS AND SLOW FLIGHT RECOVERIES SHALL BE COMPLETED ABOVE _____.",
+      "a": "[4-3] Above 6,000 feet AGL."
+    },
+    {
+      "q": "CROSS COUNTRY FLIGHTS SHALL NOT BE PLANNED TO DESTINATIONS WHERE ____ IS FORECASTED WITHIN _____ HOURS OF ARRIVAL. (TRARONTENINST 3710.1)",
+      "a": "Snow; 24 hours."
+    },
+    {
+      "q": "SHOULD A STUDENT INDICATE THEY ARE NOT ___ FOR A FLIGHT, THE FLIGHT PORTION OF THE EVENT (MAY/SHOULD/SHALL) NOT BE CONDUCTED",
+      "a": "IMSAFE / SHALL NOT be conducted (NATOPS binder pg. 3-2)."
+    },
+    {
+      "q": "WEEKEND CROSS-COUNTRY REQUEST WILL BE SUBMITTED TO THE ____ NOT LATER (NLT) 1200 ____ EACH ____.",
+      "a": "VT-10 OPSO; NLT 1200 Tuesday each week."
+    },
+    {
+      "q": "THE COCKPIT WILL BE A STERILE ENVIRONMENT DURING ____.",
+      "a": "[3-5] Critical phases of flight to include taxi, takeoff, climb out, and upon commencing approach (no communications not pertinent to mission or safety of flight)."
+    },
+    {
+      "q": "INTENTIONAL G LOADING GREATER THAN ____ IS PROHIBITED. IF THIS LIMIT IS EXCEEDED ____ SHALL BE NOTIFIED",
+      "a": "+7 Gs. TRARONTENINST 3710.1AE [4-5; 412]: Shall be reported immediately to the SDO, who will immediately inform the OPSO and the Safety Officer."
+    },
+    {
+      "q": "WHEN SHALL A G-WARM UP MANEUVER BE CONDUCTED? (COMTRAWINGSIXINST 3710.1)",
+      "a": "[4-1 / 401.c] In accordance with the appropriate FTI prior to performing maneuvers requiring in excess of 3 Gs."
+    },
+    {
+      "q": "SPECIAL VISUAL FLIGHT RULES (VFR) FLIGHTS (ARE/ARE NOT) AUTHORIZED. (TRARONTENINST 3710.1)",
+      "a": "ARE NOT authorized."
+    },
+    {
+      "q": "ARE GROUND OPERATIONS ON SNOW OR ICE COVERED RUNWAYS AUTHORIZED? (TRARONTENINST 3710.1)",
+      "a": "Prohibited (Ground operations on snow or ice covered runways are prohibited)."
+    },
+    {
+      "q": "WHEN SHALL MINIMUM FUEL BE DECLARED? (TRARONTENINST 3710.1)",
+      "a": "[4-3] Whenever estimated usable fuel at the point of landing will be 200 pounds or less."
+    },
+    {
+      "q": "AIRCRAFT (MAY/SHOULD/SHALL) NOT FILE OR FLY IN AREAS WHERE SEVERE TURBULENCE IS FORECAST OR EXPERIENCED. (TRARONTENINST 3710.1)",
+      "a": "SHALL NOT."
+    },
+    {
+      "q": "WHEN DOES STUDENT CREW DAY BEGIN? (COMTRAWINGSIXINST 3710.1)",
+      "a": "[2-2.b] At first scheduled event or official duty of the day (e.g., grabbing flight gear from the paraloft). Total workday until completion of last event/debrief shall not exceed 12 hours."
+    }
+  ],
+  "EOD": [
+    {
+      "q": "TIRE FAILURE DURING TAKEOFF",
+      "a": "[EF-5] If decision is made to stop: Abort.\nIf takeoff is continued:\n1. Gear and flaps position - DO NOT CHANGE\n2. Straight-in approach - EXECUTE (Land on side of runway corresponding to good tire; maintain directional control with rudder, brakes, and NWS)."
+    },
+    {
+      "q": "PMU FAIL",
+      "a": "1. PCL - Minimum practical for flight\n2. PMU switch - OFF (Warning: set lowest practical power before resetting/switching OFF)\nTO RESET PMU:\n3. IGN, START, and PMU circuit breakers (left front console) - Check and reset if necessary\n4. PMU switch - NORM (attempt second reset if necessary)\nIF RESET UNSUCCESSFUL:\n5. PMU switch - OFF\n6. Land as soon as practical (Ground idle unavailable; plan for increased landing distance with ~67% N1 idle)."
+    },
+    {
+      "q": "LOW FUEL PRESSURE",
+      "a": "(FUEL PX < 10 psi and boost pump fails to engage, or BOOST PUMP cycling on/off):\n*1. PEL - Execute (Note: High pressure pump suction feeding is limited to 10 hours)\n*2. BOOST PUMP - ON (Do not reset BOOST PUMP CB on left front console if open unless a greater emergency exists)."
+    },
+    {
+      "q": "RAPID DECOMPRESSION/COCKPIT PRESSURE ALTITUDE EXCEEDS 18,000 FEET",
+      "a": "1. OBOGS - Check (BOTH): Supply lever ON, Concentration lever MAX, Pressure lever EMERGENCY, Flow indicator Check\n2. Oxygen hose/CRU-60/P connection - Check (BOTH)\n3. Oxygen mask - Check for leaks (BOTH)\n4. Descent below 18,000 ft MSL - Initiate\n5. BLEED AIR INFLOW switch - HI\n6. INFLOW SYS CB (left front console) - Check; reset if open\n7. Land as soon as practical."
+    },
+    {
+      "q": "ENGINE FAILURE DURING FLIGHT",
+      "a": "*1. Zoom/glide - 125 KIAS (minimum)\n*2. PCL - OFF\n*3. INTERCEPT ELP\n4. Airstart - Attempt if warranted\n5. Checklist - Complete Forced Landing or Ejection checklist as appropriate."
+    },
+    {
+      "q": "CHIP DETECTOR WARNING",
+      "a": "1. PCL - Minimum necessary to intercept ELP; avoid unnecessary PCL movement (Warning: higher power may aggravate condition)\n2. PEL - Execute."
+    },
+    {
+      "q": "ELECTRICAL FIRE",
+      "a": "[ED-31] 1. OBOGS - Check (BOTH): ON, MAX, EMERGENCY\n2. Descent below 10,000 ft MSL - Initiate\n3. Pressurization switch - RAM/DUMP\n4. Bleed air inflow switch - OFF\nIf smoke/fire persists:\n5. GEN, BATT, AUX BAT switches - OFF\n6. CFS handle safety pin - Remove (BOTH) / Rotate 90° CCW and pull if necessary\nIf smoke/fire ceases: Restore electrical power A/R; Land ASAP."
+    },
+    {
+      "q": "SMOKE AND FUME ELIMINATION",
+      "a": "[ED-31] 1. OBOGS - Check (BOTH): ON, MAX, EMERGENCY\n2. Descent below 10,000 ft MSL - Initiate\n3. Pressurization switch - RAM/DUMP\n4. Bleed air inflow switch - OFF\nIf smoke/fire persists:\n5. GEN, BATT, AUX BAT switches - OFF\n6. CFS handle safety pin - Remove (BOTH) / Rotate 90° CCW and pull if necessary\nIf smoke/fire ceases: Restore electrical power A/R; Land ASAP."
+    },
+    {
+      "q": "LOSS OF ICS/AUDIO",
+      "a": "Check connections, switch comm cord, check audio panel, check backup UHF.\nRadio: Verify lost comms, squawk 7600, make calls in the blind. Below 10,000 ft take masks off and yell to communicate. Push to pass, shake to take controls."
+    },
+    {
+      "q": "ENGINE FAILURE IMMEDIATELY AFTER TAKEOFF (SUFFICIENT RUNWAY REMAINING STRAIGHT AHEAD)",
+      "a": "*1. Airspeed - 110 KIAS (minimum)\n*2. PCL - As required (IDLE to feather prop, or OFF to reduce sink rate)\n*3. EMER LDG GR HANDLE - Pull (as required)\n*4. Flaps - As required."
+    },
+    {
+      "q": "PMU OFF AIRSTART",
+      "a": "Used if PMU has malfunctioned (PMU FAIL illuminated). PCL must be OFF prior to igniters so fuel flow isn't introduced without ignition (causes hot start). Do not leave BOOST PUMP on too long (damages engine-driven low pressure pump)."
+    },
+    {
+      "q": "FIRE WARNING ON THE GROUND",
+      "a": "Indications: FIRE and MASTER WARN annunciators, visual smoke/fire, high ITT, fluctuating/high fuel flow. Perform Emergency Shutdown on the Ground and Emergency Ground Egress procedure if applicable."
+    },
+    {
+      "q": "TRIM AID DEVICE FAILURE",
+      "a": "1. AHRS CB (left front console) - Check in\n2. AHRS/TAD CB (right front console) - Pull and reset (Wait minimum 15 seconds to reset)\n3. TRIM AID switch - Engage after TAD FAIL annunciator extinguishes."
+    },
+    {
+      "q": "HYDRAULIC SYSTEM MALFUNCTIONS",
+      "a": "Normal limits: 3,000 +/- 120 psi (abnormal <1,790 or >3,510 psi). HYDR FL LO (<1 qt) or EHYD PX LO (<2,400 +/-150 psi) could indicate a fluid leak. If leak is on emergency side, hydraulic fuse may not trigger and all fluid could be lost—execute PEL / land sooner rather than later."
+    },
+    {
+      "q": "MOTORING RUN PROCEDURES",
+      "a": "Perform after any aborted start in which fuel was introduced to clear residual fuel and lower ITT. Note: STARTER switch is not spring-loaded from MANUAL to NORM; observe starter duty cycle cool-down period."
+    }
+  ],
+  "QOD": [
+    {
+      "q": "WHAT DOES THE WHITE DIAMOND AT 8.8 UNITS ON THE AOA GAGE INDICATE?",
+      "a": "Maximum Endurance AOA (8.8 units)."
+    },
+    {
+      "q": "VMO IS ______ KIAS UP TO AND INCLUDING 18,769 FT MSL",
+      "a": "316 KIAS."
+    },
+    {
+      "q": "THE GAS GENERATOR SECTION (THE AFT HALF OF THE ENGINE) CONSISTS OF THE _____ STAGE AXIAL FLOW COMPRESSOR, _____ STAGE CENTRIFUGAL FLOW COMPRESSOR, COMBUSTION CHAMBER AND SINGLE STAGE COMPRESSOR TURBINE",
+      "a": "Four-stage axial flow compressor; Single-stage centrifugal flow compressor."
+    },
+    {
+      "q": "WHAT IS THE MAXIMUM ALLOWABLE TOTAL WEIGHT OF BAGS AND PUBLICATIONS ON THE GLARESHIELD?",
+      "a": "8.5 lbs."
+    },
+    {
+      "q": "THE PT6A-68 ENGINE HAS BEEN FLAT-RATED TO PRODUCE __ SHAFT HORSEPOWER.",
+      "a": "1,100 SHP."
+    },
+    {
+      "q": "WHAT ARE THE COMMUNICATION AND EQUIPMENT REQUIREMENTS TO OPERATE IN CLASS C AIRSPACE? (FAR/AIM)",
+      "a": "Two-way radio communication established with ATC prior to entry, and an operable Mode C transponder."
+    },
+    {
+      "q": "WHAT CONDITIONS WILL TRIGGER A RED OIL PX ANNUNCIATOR?",
+      "a": "1. Oil pressure at or below 15 psi\n2. Oil pressure 15-40 psi for > 5 seconds\n3. Oil pressure at or below 40 psi above idle."
+    },
+    {
+      "q": "BEST GLIDE SPEED IN A POWER-OFF CLEAN CONFIGURATION WILL RESULT IN A SINK RATE OF APPROXIMATELY ______ FPM.",
+      "a": "1,350 FPM (~2 NM per 1,000 ft)."
+    },
+    {
+      "q": "A NORMAL LANDING GEAR EXTENSION/RETRACTION SEQUENCE TAKES APPROXIMATELY __ SECONDS.",
+      "a": "Approximately 6 seconds (NATOPS 1-40)."
+    },
+    {
+      "q": "WILL THE FUEL AUTO BALANCE SYSTEM HAVE ANY EFFECT ON A FUEL IMBALANCE WITH THE ENGINE SECURED?",
+      "a": "No; the fuel balancing system is controlled by the Engine Data Manager (EDM), which requires battery or generator power to function."
+    },
+    {
+      "q": "PROPELLER PITCH MAY BE DEFINED BY 3 BASIC POSITIONS, ___, ____ (FLAT OR FINE), AND ____ (COARSE).",
+      "a": "Feathered, Low pitch (flat/fine), and High pitch (coarse) [Systems FTI 9-19]."
+    },
+    {
+      "q": "THE PRIMARY ENGINE DATA DISPLAY PRESENTS TORQUE, PROPELLER RPM (NP), ____, ____, AND ____.",
+      "a": "IOAT, N1, and ITT (NATOPS 1-20)."
+    },
+    {
+      "q": "WHAT IS THE BEST GLIDE SPEED IN CLEAN CONFIGURATION?",
+      "a": "125 KIAS."
+    },
+    {
+      "q": "THE CANOPY SHALL NOT BE OPENED ON THE GROUND WHEN THE SURFACE WINDS EXCEED ____ KNOTS?",
+      "a": "40 knots."
+    },
+    {
+      "q": "THE FUEL SYSTEM INCORPORATES AUTO BALANCE SYSTEM TO KEEP THE FUEL LEVEL IN THE WING TANKS WITHIN _____ POUNDS OF EACH OTHER",
+      "a": "20 pounds."
+    },
+    {
+      "q": "(T/F) MISHAPS HAVE OCCURRED DUE TO INADVERTENT LIFTING OF PCL IDLE CUT-OFF GATE DURING FLIGHT",
+      "a": "True."
+    },
+    {
+      "q": "THE FIREWALL SHUTOFF HANDLE MECHANICALLY OPERATES CABLES TO CLOSE VALVES AT THE FIREWALL, CUTTING OFF _____ AND _____ FLUID TO THE ENGINE AS WELL AS CUTTING OFF _____ _____ FROM THE ENGINE.",
+      "a": "Fuel and Hydraulic fluid; Bleed Air."
+    },
+    {
+      "q": "OIL LEVEL MUST BE SERVICED WITHIN ____ MINUTES OF ENGINE SHUTDOWN",
+      "a": "30 minutes (for most accurate results, check 15-20 minutes after shutdown)."
+    },
+    {
+      "q": "THE AIRCRAFT BASIC EMPTY WEIGHT IS APPROXIMATELY ___ POUNDS. MAXIMUM TAKEOFF GROSS WEIGHT IS ___ POUNDS.",
+      "a": "Basic Empty Weight: ~4,900 lbs; Max Takeoff Gross Weight: 6,500 lbs."
+    },
+    {
+      "q": "DO NOT CONNECT TO EXTERNAL POWER IF BATTERY VOLTAGE IS BELOW ____ VOLTS.",
+      "a": "22.0 Volts."
+    },
+    {
+      "q": "WHAT IS THE STUDENT STANDBY POLICY? (TRARONTENINST 3710.1)",
+      "a": "Students shall be prepared and available to fly their scheduled standby event during the entire assigned standby window. No-shows or late recalls are considered un-officer-like conduct."
+    },
+    {
+      "q": "NAME ONE CONDITION THAT WILL CAUSE THE AURAL LANDING GEAR POSITION WARNING TO ACTIVATE.",
+      "a": "250 Hz tone (5x/sec) activates when ANY of the following exist:\n1. Gear handle not DOWN, PCL below ~87% N1, airspeed < 120 KIAS, and flaps UP or TO.\n2. All gear not indicating down & locked with flaps LDG.\n3. Weight on wheels (WOW) with gear handle not DOWN."
+    }
+  ],
+  "IOD": [
+    {
+      "q": "FOR HOLDING, START SPEED REDUCTION WHEN THE AIRCRAFT IS _____ MINUTES OR LESS FROM THE HOLDING FIX.",
+      "a": "3 minutes or less."
+    },
+    {
+      "q": "WHEN IS AN AIRCRAFT CONSIDERED ESTABLISHED ON COURSE?",
+      "a": "Within 1 dot on the CDI (5 degrees)."
+    },
+    {
+      "q": "WHO CAN APPROVE A FLIGHT PLAN (CNAF M 3710.7)",
+      "a": "Pilot in Command (PIC)."
+    },
+    {
+      "q": "WHAT ARE THE ADVANTAGES OF DEPARTURE PROCEDURES ACCORDING TO THE FTI?",
+      "a": "1. Graphic portrayal of departure route\n2. Reduces time delay and radio comms required to issue clearances\n3. Provides obstacle clearance and approved ATC departure route clearance in the event of lost comms."
+    },
+    {
+      "q": "CAN A SINGLE-PILOTED AIRCRAFT EXECUTE PRACTICE APPROACHES AT A FACILITY WHERE WEATHER IS REPORTED BELOW PUBLISHED MINIMUMS?",
+      "a": "Yes (CNAF M-3710.7 pg. 5-29 — for a practice approach in VMC/practice context)."
+    },
+    {
+      "q": "WHAT SHOULD YOU DO IF YOU GO IMC AFTER STARTING YOUR CIRCLING ON AN APPROACH?",
+      "a": "Turn toward the landing/approach runway, climb to MSA, intercept the missed approach course for the approach flown, and execute missed approach/climb-out instructions."
+    },
+    {
+      "q": "WHEN DOES THE FTI SPECIFY THAT ALTITUDE WARNING CALLS SHALL BE GIVEN",
+      "a": "FL180, 15,000, 10,000, 6,000 AGL, 6,000, 5,000, 4,000, 3,000, 2,000, 1,000, and 200 ft prior to MDA/DA on final."
+    },
+    {
+      "q": "WHAT IS A VDP?",
+      "a": "Visual Descent Point: A defined point on the final approach course of a non-precision straight-in approach from which normal descent from the MDA to the runway touchdown point may be commenced, provided required visual references are established."
+    },
+    {
+      "q": "DEFINE MRA",
+      "a": "Minimum Reception Altitude: The lowest altitude at which an intersection can be determined by a NAVAID."
+    },
+    {
+      "q": "DEFINE MSA",
+      "a": "Minimum Safe Altitude: Altitudes depicted on approach charts which provide at least 1,000 ft of obstacle clearance within a 25 NM radius of the navigation facility, waypoint, or Airport Reference Point."
+    },
+    {
+      "q": "WHAT SHOULD THE INBOUND LEG LENGTH BE FOR VOR HOLDING AT OR BELOW 14,000 FT MSL?",
+      "a": "1 minute (1.5 minutes above 14,000 ft MSL)."
+    },
+    {
+      "q": "WHAT TYPES OF CLOUD LAYERS CREATE A CEILING?",
+      "a": "Broken (BKN) or Overcast (OVC)."
+    },
+    {
+      "q": "WHAT ARE THE MAX HOLDING AIRSPEEDS?",
+      "a": "• MHA to 6,000 ft: 200 KIAS\n• 6,001 to 14,000 ft: 230 KIAS\n• 14,001 ft and above: 265 KIAS\n(USN airfields max: 230 KIAS; USAF airfields max: 310 KIAS)."
+    },
+    {
+      "q": "WHAT ARE THE WEATHER REQUIREMENTS FOR FILING AN ALTERNATE?",
+      "a": "• Case 1 (Dest WX < approach mins): Alternate requires 3,000-3 or better.\n• Case 2 (Dest WX >= approach mins but < 3,000-3): Alternate requires published mins + 200-1/2 (Precision) or + 300-1 (Non-Precision).\n• Case 3 (Dest WX >= 3,000-3 from 1 hr before to 1 hr after ETA): No alternate required."
+    },
+    {
+      "q": "WHAT ARE THE TWO APPROACH CATEGORIES THE T-6 CAN NORMALLY FALL UNDER? WHAT ARE THE RANGES OF THOSE CATEGORIES",
+      "a": "Category B (91 to <121 KIAS) and Category C (121 to <141 KIAS), based on 1.3x Vso at max gross weight (300 ft obstacle clearance at MDA within circling radius)."
+    },
+    {
+      "q": "HOW IS MINIMUM DME CALCULATED?",
+      "a": "Altitude / 6,000."
+    },
+    {
+      "q": "WHAT DOES THE TRIANGLE T DELINEATE ON AN INSTRUMENT APPROACH PROCEDURE?",
+      "a": "Takeoff minimums are non-standard and/or Obstacle Departure Procedures (ODPs) are published."
+    },
+    {
+      "q": "WHEN SHOULD YOU REPORT ESTABLISHED IN HOLDING? WHEN MAY THE REPORT BE OMITTED?",
+      "a": "Report time and altitude/FL reaching the holding fix (INAV FTI 5-2). May be omitted during instrument training at military terminal area facilities when radar service is being provided."
+    },
+    {
+      "q": "WHAT IS THE DIFFERENCE BETWEEN HEIGHT ABOVE TOUCHDOWN (HAT) AND HEIGHT ABOVE AIRPORT (HAA)?",
+      "a": "• HAT: Height of DA/MDA above the highest runway elevation in the touchdown zone (first 3,000 ft of the runway).\n• HAA: Height of MDA above published airport elevation (used for circling minimums)."
+    },
+    {
+      "q": "WHAT IS THE PRIMARY METHOD FOR REQUESTING AND OBTAINING FLIGHT ROUTE WEATHER BRIEFINGS? (CNAF M 3710.7)",
+      "a": "Online via the web-enabled Flight Weather Briefer (FWB) system operated by DoD forecasters (NAFC/USMC). Backup phone: 1-888-PILOTWX (or 1-800-WXBRIEF) documented on DD Form 175-1."
+    }
+  ],
+  "WOD": [
+    { "q": "WILCO", "a": "Will comply." },
+    { "q": "HOSTILE", "a": "Contact positively identified as enemy IAW command ROE." },
+    { "q": "KNOCK-IT-OFF", "a": "Directive to cease maneuvering immediately when safety of flight is a factor." },
+    { "q": "NEUTRAL", "a": "Contact identified as neither foe nor ally." },
+    { "q": "F", "a": "Sighting of a confirmed target." },
+    { "q": "UNABLE", "a": "Cannot comply as requested or directed." },
+    { "q": "VISUAL", "a": "Sighting of a friendly aircraft or ground position (opposite of BLIND)." },
+    { "q": "ACTION", "a": "Directive to initiate a briefed attack sequence or maneuver." },
+    { "q": "ANGELS", "a": "Height of friendly aircraft in thousands of feet MSL (e.g., Angels 6 = 6,000 ft)." },
+    { "q": "BRAA", "a": "Bearing, Range, Altitude, Aspect — tactical air intercept call referenced to the fighter's position." },
+    { "q": "FEET WET/DRY", "a": "Transitioning flight position over water (Feet Wet) or over land (Feet Dry)." },
+    { "q": "CONTACT", "a": "Establish communications with the specified facility/frequency (or acknowledges radar/sensor contact)." },
+    { "q": "DIVERT", "a": "Proceed to an alternate destination / change in flight plan destination." },
+    { "q": "FENCE IN/OUT", "a": "Set cockpit switches/systems as appropriate prior to entering (Fence In) or exiting (Fence Out) a combat area." },
+    { "q": "HOME PLATE", "a": "Home airfield." },
+    { "q": "BINGO", "a": "Pre-briefed fuel state needed for safe recovery to base using normal profile." },
+    { "q": "JOKER", "a": "Pre-briefed fuel state above BINGO at which separation/bugout/event termination should begin." },
+    { "q": "NO JOY", "a": "Aircrew does not have visual contact with the TARGET/BANDIT (opposite of TALLY), or comms could not be established." },
+    { "q": "BLIND", "a": "No visual contact with friendly aircraft/wingman (opposite of VISUAL); deconflict altitudes immediately." },
+    { "q": "ATTACK(ING)", "a": "Informative call indicating aircraft are committed to air-to-surface delivery on a specific ground target (not for CAS)." },
+    { "q": "ESO", "a": "Signifies that aircrew understands the order and will comply." },
+    { "q": "PUSH", "a": "Directive to switch to designated frequency; no acknowledgement required." },
+    { "q": "TALLY", "a": "Sighting of a target, bandit, landmark, or enemy position (opposite of NO JOY)." },
+    { "q": "SNOW DAY", "a": "Unscheduled day off due to winter weather event (VT-10 schedule Easter egg from the Jan 21, 2025 Pensacola snowstorm)." }
+  ]
+}
