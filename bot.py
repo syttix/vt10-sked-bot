@@ -47,7 +47,7 @@ def get_target_dates(now: datetime) -> list[datetime]:
     weekday = now.weekday()
     if weekday == 4:  # Friday
         return [now + timedelta(days=i) for i in (1, 2, 3)]
-    elif weekday == 5:  # Saturday (manual run fallback)
+    elif weekday == 5:  # Saturday
         return [now + timedelta(days=i) for i in (1, 2)]
     else:  # Mon-Thu (or Sunday)
         return [now + timedelta(days=1)]
@@ -134,7 +134,7 @@ def load_roster(is_manual_test: bool) -> tuple[list[dict], dict]:
 
                 first_name_clean = first_name.strip()
                 first_init = first_name_clean[:1].upper()
-                key = f"{last_name.lower()}_{first_init.lower()}"
+                key = f"{last_name.lower()}_{first_name_clean.lower()}"
 
                 if "unsub" in action.lower() or "stop" in action.lower():
                     if key in roster_by_key:
@@ -759,7 +759,6 @@ def build_html_body(target_dt: datetime, parsed: dict, is_update: bool, filename
             </div>
             """)
 
-    # 1. Flight (✈️) & Simulator (🖥️) Cards
     for f in parsed["flights_and_sims"]:
         if "event" not in f:
             cards_html.append(f"<div style='padding:12px; background:#f1f5f9; border-radius:6px; margin-bottom:12px;'>{html.escape(f['raw'])}</div>")
@@ -836,7 +835,6 @@ def build_html_body(target_dt: datetime, parsed: dict, is_update: bool, filename
         </div>
         """)
 
-    # 2. Dedicated Watch / Duty (🛡️) Cards
     for w in parsed["watches"]:
         cards_html.append(f"""
         <div style="border:1px solid #fcd34d; border-radius:10px; overflow:hidden; margin-bottom:16px; background:#ffffff; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
@@ -890,7 +888,6 @@ def build_html_body(target_dt: datetime, parsed: dict, is_update: bool, filename
         </div>
         """)
 
-    # 3. Ground Event (🎓) Cards
     for g in parsed["ground_events"]:
         if "event" not in g:
             cards_html.append(f"<div style='padding:12px; background:#f1f5f9; border-radius:6px; margin-bottom:12px;'>{html.escape(g['raw'])}</div>")
@@ -934,7 +931,6 @@ def build_html_body(target_dt: datetime, parsed: dict, is_update: bool, filename
         </div>
         """)
 
-    # 4. General Schedule Notes
     for d in parsed["duties_and_notes"]:
         cards_html.append(f"""
         <div style="background:#fff7ed; border:1px solid #fed7aa; border-left:4px solid #ea580c; border-radius:8px; padding:12px 16px; margin-bottom:12px; font-size:14px; color:#9a3412;">
@@ -942,7 +938,7 @@ def build_html_body(target_dt: datetime, parsed: dict, is_update: bool, filename
         </div>
         """)
 
-    # 5. Questions of the Day + Answers Table
+    # Questions of the Day + Answers Table
     q = parsed["questions"]
     a = parsed.get("answers", {})
     q_rows = ""
@@ -990,7 +986,6 @@ def build_html_body(target_dt: datetime, parsed: dict, is_update: bool, filename
 
     checkerboard_html = build_checkered_strip_html()
 
-    # Single unified Google Form link (no duplicate links)
     form_links_html = ""
     if SIGNUP_FORM_URL:
         safe_form_url = html.escape(SIGNUP_FORM_URL)
