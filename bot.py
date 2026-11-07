@@ -1062,7 +1062,6 @@ def build_html_body(target_dt: datetime, parsed: dict, is_update: bool, filename
     </html>
     """
 
-
 def build_diagnostic_recap_email(
     now: datetime,
     target_dt: datetime,
@@ -1076,8 +1075,10 @@ def build_diagnostic_recap_email(
 ) -> tuple[str, str, str]:
     date_code = target_dt.strftime("%Y-%m-%d")
     date_pretty = target_dt.strftime("%a %m/%d/%Y")
-    sent_ok = sum(1 for r in delivery_results if r["ok"])
-    failed_count = len(delivery_results) - sent_ok
+
+    sent_count = sum(1 for r in delivery_results if r["sent"])
+    failed_count = sum(1 for r in delivery_results if r["error"])
+    unsent_count = len(delivery_results) - sent_count - failed_count
     scheduled_count = sum(
         1 for r in delivery_results if r["status_tag"] in ("SCHEDULED", "WATCH", "SCHEDULED + WATCH")
     )
@@ -1090,7 +1091,7 @@ def build_diagnostic_recap_email(
 
     subject = (
         f"[DIAGNOSTIC] VT-10 SkedBot Recap ({target_dt.strftime('%a %m/%d')}): "
-        f"{sent_ok}/{len(delivery_results)} Sent | {scheduled_count} Active Events/Watch"
+        f"{sent_count}/{len(delivery_results)} Sent | {scheduled_count} Active Events/Watch"
     )
 
     plain_lines = [
@@ -1101,6 +1102,7 @@ def build_diagnostic_recap_email(
         f"PDF SHA-256:      {pdf_hash[:16]}... ({pdf_size_bytes / 1024:.1f} KB, {page_count} pages)",
         f"Roster CSV Sync:  {'OK' if roster_diag['csv_fetch_ok'] else 'FALLBACK/WARNING'} "
         f"({roster_diag['active_count']} active, {roster_diag['unsubscribed_count']} unsubscribed)",
+        f"Delivery Totals:  {sent_count} Sent, {unsent_count} Unsent, {failed_count} Failed",
         f"QOD Bank Matches: {matched_q_count}/{len(active_q_keys)} matched "
         f"{'(Missing: ' + ', '.join(missing_q_keys) + ')' if missing_q_keys else '(100%)'}",
         "\nRECIPIENT BREAKDOWN:",
@@ -1112,9 +1114,16 @@ def build_diagnostic_recap_email(
             if r.get("first_name")
             else r["last_name"]
         )
+        if r["sent"]:
+            smtp_status = "SENT OK"
+        elif r["error"]:
+            smtp_status = f"ERROR: {r['error']}"
+        else:
+            smtp_status = "UNSENT (DIAGNOSTIC ONLY)"
+
         plain_lines.append(
             f"• {display_name} ({r['email']}): {r['status_tag']} | "
-            f"{r['summary']} | {'SENT OK' if r['ok'] else 'ERROR: ' + str(r['error'])}"
+            f"{r['summary']} | {smtp_status}"
         )
 
     rows_html = ""
@@ -1126,11 +1135,13 @@ def build_diagnostic_recap_email(
         else:
             status_badge_color = "#64748b"
 
-        deliv_badge = (
-            '<span style="color:#15803d; font-weight:700;">✓ Sent</span>'
-            if r["ok"]
-            else f'<span style="color:#dc2626; font-weight:700;">✗ {html.escape(str(r["error"]))}</span>'
-        )
+        if r["sent"]:
+            deliv_badge = '<span style="color:#15803d; font-weight:700;">✓ Sent</span>'
+        elif r["error"]:
+            deliv_badge = f'<span style="color:#dc2626; font-weight:700;">✗ {html.escape(str(r["error"]))}</span>'
+        else:
+            deliv_badge = '<span style="color:#64748b; font-weight:700;">— Unsent</span>'
+
         display_name = (
             f"{r['last_name']}, {r['first_name']}"
             if r.get("first_name")
@@ -1211,7 +1222,7 @@ def build_diagnostic_recap_email(
               <tr>
                 <td style="color:#64748b; font-weight:600;">Delivery Totals</td>
                 <td style="color:#0f172a;">
-                  <b>{sent_ok} Sent OK</b>, {failed_count} Failed &nbsp;|&nbsp;
+                  <b>{sent_count} Sent</b>, {unsent_count} Unsent, {failed_count} Failed &nbsp;|&nbsp;
                   <b>{scheduled_count} Active Events/Watch</b>, {len(delivery_results) - scheduled_count} Unscheduled
                 </td>
               </tr>
@@ -1294,6 +1305,8 @@ def main():
 
     is_manual_test = bool(os.getenv("TEST_DATE", "").strip())
     force_diagnostic = os.getenv("FORCE_DIAGNOSTIC", "false").strip().lower() in ("true", "1", "yes")
+
+    # Fetch the live Google Sheet CSV whenever in normal mode OR force_diagnostic mode
     roster, roster_diag = load_roster(is_manual_test and not force_diagnostic)
     target_dates = get_target_dates(now)
 
@@ -1341,23 +1354,26 @@ def main():
                 is_weekend = target_dt.weekday() >= 5
                 status_tag = determine_schedule_status(parsed, is_weekend)
 
-                # If force_diagnostic is True, NEVER send student emails
+                # Default state is UNSENT (sent: False)
+                result_entry = {
+                    "last_name": last_name,
+                    "first_name": first_name,
+                    "first_initial": first_initial,
+                    "email": student["email"],
+                    "status_tag": status_tag,
+                    "summary": summarize_student_events(parsed),
+                    "sent": False,
+                    "error": None,
+                }
+
+                # In forced diagnostic mode, skip sending so "sent" remains False
                 if force_diagnostic:
-                    print(f"[{date_str}] Diagnostic dry-run ({idx}/{len(roster)}) — Status: {status_tag}")
-                    delivery_results.append({
-                        "last_name": last_name,
-                        "first_name": first_name,
-                        "first_initial": first_initial,
-                        "email": student["email"],
-                        "status_tag": status_tag,
-                        "summary": summarize_student_events(parsed),
-                        "ok": True,
-                        "error": None,
-                    })
+                    print(f"[{date_str}] Diagnostic check ({idx}/{len(roster)}) — Status: {status_tag}")
+                    delivery_results.append(result_entry)
                     continue
 
-                # Otherwise (Normal mode or single-student TEST_DATE preview):
                 recipient_email = GMAIL_USER if is_manual_test else student["email"]
+                result_entry["email"] = recipient_email
                 prefix = "[TEST -> SkedBot Inbox] " if is_manual_test else ("[UPDATED] " if is_update else "")
                 subject = (
                     f"{prefix}VT-10 Sked ({target_dt.strftime('%a %m/%d')} - "
@@ -1372,30 +1388,15 @@ def main():
                         recipient_email, subject, plain_body, html_body, pdf_bytes, filename
                     )
                     smtp.send_message(msg)
+                    result_entry["sent"] = True  # Only flips to True after actual SMTP send
                     print(f"[{date_str}] Sent schedule email ({idx}/{len(roster)}) — Status: {status_tag}")
-                    delivery_results.append({
-                        "last_name": last_name,
-                        "first_name": first_name,
-                        "first_initial": first_initial,
-                        "email": recipient_email,
-                        "status_tag": status_tag,
-                        "summary": summarize_student_events(parsed),
-                        "ok": True,
-                        "error": None,
-                    })
                 except Exception as e:
+                    result_entry["error"] = str(e)
                     print(f"[{date_str}] ERROR sending schedule email ({idx}/{len(roster)}): {e}")
-                    delivery_results.append({
-                        "last_name": last_name,
-                        "first_name": first_name,
-                        "first_initial": first_initial,
-                        "email": recipient_email,
-                        "status_tag": status_tag,
-                        "summary": summarize_student_events(parsed),
-                        "ok": False,
-                        "error": str(e),
-                    })
 
+                delivery_results.append(result_entry)
+
+            # Send Diagnostic Recap to SkedBot inbox on normal daily runs OR when force_diagnostic is True
             if not is_manual_test or force_diagnostic:
                 diag_subj, diag_plain, diag_html = build_diagnostic_recap_email(
                     now=now,
@@ -1421,6 +1422,7 @@ def main():
             state[date_str] = pdf_hash
             state_modified = True
 
+    # Fallback if force_diagnostic was triggered without a test_date and tomorrow's PDF isn't posted yet
     if force_diagnostic and not diagnostic_sent and state:
         latest_known_date = sorted(state.keys())[-1]
         print(f"[FORCE DIAGNOSTIC] Target dates not posted yet; falling back to latest known PDF ({latest_known_date}).")
@@ -1434,7 +1436,7 @@ def main():
             for idx, student in enumerate(roster, start=1):
                 parsed = parse_student_schedule(extracted_pdf, student["last_name"], student.get("first_name", ""))
                 status_tag = determine_schedule_status(parsed, fallback_dt.weekday() >= 5)
-                print(f"[{latest_known_date}] Diagnostic dry-run ({idx}/{len(roster)}) — Status: {status_tag}")
+                print(f"[{latest_known_date}] Diagnostic check ({idx}/{len(roster)}) — Status: {status_tag}")
                 delivery_results.append({
                     "last_name": student["last_name"],
                     "first_name": student.get("first_name", ""),
@@ -1442,7 +1444,7 @@ def main():
                     "email": student["email"],
                     "status_tag": status_tag,
                     "summary": summarize_student_events(parsed),
-                    "ok": True,
+                    "sent": False,
                     "error": None,
                 })
             with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
