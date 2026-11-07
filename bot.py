@@ -30,7 +30,7 @@ STATE_FILE = "state.json"
 QOD_BANK_FILE = "qod_bank.json"
 TZ = ZoneInfo("America/Chicago")
 
-RANKS = r"(?:CIV|ENS|LTJG|LT|LCDR|CDR|CAPT|Capt|Maj|LtCol|Col|1stLt|2ndLt|CWO\d|ctr)"
+RANKS = r"(?:CIV|ENS|LTJG|LT|LCDR|CDR|CAPT|Capt|Maj|LtCol|Col|1stLt|2ndLt|2LT|CWO\d|ctr)"
 NAME_PATTERN = rf"[A-Za-z'\-]+,\s*[A-Za-z\.]+,\s*{RANKS}"
 SIM_KEYWORDS = ("UTD", "OFT", "IFT", "VTD", "SIM", "MCS", "2B47", "2F198", "ACA")
 WATCH_KEYWORDS_REGEX = r"\b(ASDO|AFDO|SDO|CDO|ODO|FDO|Duty\s+Officer|SUPER|WHEELS\s+WATCH|DUTY\s+DRIVER|Watches|STANDBY|STDBY|STBY|ADMIN\s+HOLD)\b"
