@@ -5,6 +5,7 @@ import re
 import html
 import json
 import hashlib
+import hmac
 import smtplib
 from difflib import SequenceMatcher
 from datetime import datetime, timedelta
@@ -25,6 +26,10 @@ GMAIL_APP_PASSWORD = os.environ["GMAIL_APP_PASSWORD"].strip()
 ROSTER_CSV_URL = os.getenv("ROSTER_CSV_URL", "").strip()
 SIGNUP_FORM_URL = os.getenv("SIGNUP_FORM_URL", "").strip()
 GITHUB_REPO_URL = "https://github.com/syttix/vt10-sked-bot"
+# Secret key for anonymizing per-student data in the public state.json. A plain hash of a
+# name could be reversed by hashing every name on the (public) CNATRA PDF, so a keyed HMAC
+# is used instead. Defaults to the Gmail app password; set STATE_HMAC_KEY to decouple them.
+STATE_HMAC_KEY = (os.getenv("STATE_HMAC_KEY", "").strip() or GMAIL_APP_PASSWORD).encode("utf-8")
 
 STATE_FILE = "state.json"
 QOD_BANK_FILE = "qod_bank.json"
@@ -66,6 +71,44 @@ def load_state() -> dict:
 def save_state(state: dict) -> None:
     with open(STATE_FILE, "w", encoding="utf-8") as f:
         json.dump(state, f, indent=2, sort_keys=True)
+
+
+def get_date_state(state: dict, date_str: str) -> tuple[str | None, dict]:
+    """
+    Returns (pdf_hash, student_fingerprints) for a date.
+    Handles the legacy format where the value was just the PDF hash string
+    (no per-student fingerprints -> everyone is treated as changed).
+    """
+    entry = state.get(date_str)
+    if isinstance(entry, str):
+        return entry, {}
+    if isinstance(entry, dict):
+        return entry.get("pdf_hash"), dict(entry.get("students", {}))
+    return None, {}
+
+
+def _keyed_hash(kind: str, value: str) -> str:
+    return hmac.new(STATE_HMAC_KEY, f"{kind}:{value}".encode("utf-8"), hashlib.sha256).hexdigest()[:16]
+
+
+def student_state_key(last_name: str, first_name: str) -> str:
+    """Anonymized per-student key (state.json is committed to a public repo)."""
+    raw = f"{last_name.strip().lower()}_{(first_name or '').strip().lower()}"
+    return _keyed_hash("student", raw)
+
+
+def student_schedule_fingerprint(parsed: dict) -> str:
+    """
+    Hash of only the student-specific parts of the schedule. Questions of the day
+    are excluded since they are shared by everyone and not 'their' information.
+    """
+    relevant = {
+        k: parsed[k]
+        for k in ("flights_and_sims", "ground_events", "watches", "duties_and_notes", "leave_tad")
+    }
+    blob = json.dumps(relevant, sort_keys=True, ensure_ascii=False)
+    # Keyed so the public value can't be matched against fingerprints computed from the PDF
+    return _keyed_hash("schedule", blob)
 
 
 def load_qod_bank() -> dict:
@@ -632,7 +675,7 @@ def build_plain_text_body(target_dt: datetime, parsed: dict, is_update: bool, fi
 
     lines = []
     if is_update:
-        lines.append("SCHEDULE UPDATE DETECTED (Revised PDF posted)\n")
+        lines.append("SCHEDULE UPDATE DETECTED (Revised PDF posted — your schedule changed)\n")
 
     lines.append(f"VT-10 Schedule Summary for {parsed['student_name']} — {date_str}")
     lines.append("=" * 54)
@@ -734,7 +777,7 @@ def build_html_body(target_dt: datetime, parsed: dict, is_update: bool, filename
     if is_update:
         update_banner = """
         <div style="background-color:#fef2f2; border-left:4px solid #dc2626; padding:12px 16px; margin-bottom:16px; border-radius:6px; color:#991b1b; font-size:14px; font-weight:600;">
-          SCHEDULE UPDATE DETECTED — A revised PDF was posted to CNATRA.
+          SCHEDULE UPDATE DETECTED — A revised PDF was posted to CNATRA and your schedule changed.
         </div>
         """
 
@@ -1078,7 +1121,8 @@ def build_diagnostic_recap_email(
 
     sent_count = sum(1 for r in delivery_results if r["sent"])
     failed_count = sum(1 for r in delivery_results if r["error"])
-    unsent_count = len(delivery_results) - sent_count - failed_count
+    skipped_count = sum(1 for r in delivery_results if r.get("skipped_unchanged"))
+    unsent_count = len(delivery_results) - sent_count - failed_count - skipped_count
     scheduled_count = sum(
         1 for r in delivery_results if r["status_tag"] in ("SCHEDULED", "WATCH", "SCHEDULED + WATCH")
     )
@@ -1091,7 +1135,9 @@ def build_diagnostic_recap_email(
 
     subject = (
         f"[DIAGNOSTIC] VT-10 SkedBot Recap ({target_dt.strftime('%a %m/%d')}): "
-        f"{sent_count}/{len(delivery_results)} Sent | {scheduled_count} Active Events/Watch"
+        f"{sent_count}/{len(delivery_results)} Sent"
+        f"{f' ({skipped_count} Unchanged)' if skipped_count else ''}"
+        f" | {scheduled_count} Active Events/Watch"
     )
 
     plain_lines = [
@@ -1102,7 +1148,8 @@ def build_diagnostic_recap_email(
         f"PDF SHA-256:      {pdf_hash[:16]}... ({pdf_size_bytes / 1024:.1f} KB, {page_count} pages)",
         f"Roster CSV Sync:  {'OK' if roster_diag['csv_fetch_ok'] else 'FALLBACK/WARNING'} "
         f"({roster_diag['active_count']} active, {roster_diag['unsubscribed_count']} unsubscribed)",
-        f"Delivery Totals:  {sent_count} Sent, {unsent_count} Unsent, {failed_count} Failed",
+        f"Delivery Totals:  {sent_count} Sent, {skipped_count} Unchanged (skipped), "
+        f"{unsent_count} Unsent, {failed_count} Failed",
         f"QOD Bank Matches: {matched_q_count}/{len(active_q_keys)} matched "
         f"{'(Missing: ' + ', '.join(missing_q_keys) + ')' if missing_q_keys else '(100%)'}",
         "\nRECIPIENT BREAKDOWN:",
@@ -1118,8 +1165,12 @@ def build_diagnostic_recap_email(
             smtp_status = "SENT OK"
         elif r["error"]:
             smtp_status = f"ERROR: {r['error']}"
+        elif r.get("skipped_unchanged"):
+            smtp_status = "SKIPPED (UNCHANGED FROM PREVIOUS PDF)"
         else:
             smtp_status = "UNSENT (DIAGNOSTIC ONLY)"
+            if r.get("unchanged"):
+                smtp_status += " — unchanged from previous PDF"
 
         plain_lines.append(
             f"• {display_name} ({r['email']}): {r['status_tag']} | "
@@ -1139,6 +1190,10 @@ def build_diagnostic_recap_email(
             deliv_badge = '<span style="color:#15803d; font-weight:700;">✓ Sent</span>'
         elif r["error"]:
             deliv_badge = f'<span style="color:#dc2626; font-weight:700;">✗ {html.escape(str(r["error"]))}</span>'
+        elif r.get("skipped_unchanged"):
+            deliv_badge = '<span style="color:#0369a1; font-weight:700;">= Unchanged (skipped)</span>'
+        elif r.get("unchanged"):
+            deliv_badge = '<span style="color:#64748b; font-weight:700;">— Unsent (unchanged)</span>'
         else:
             deliv_badge = '<span style="color:#64748b; font-weight:700;">— Unsent</span>'
 
@@ -1222,7 +1277,7 @@ def build_diagnostic_recap_email(
               <tr>
                 <td style="color:#64748b; font-weight:600;">Delivery Totals</td>
                 <td style="color:#0f172a;">
-                  <b>{sent_count} Sent</b>, {unsent_count} Unsent, {failed_count} Failed &nbsp;|&nbsp;
+                  <b>{sent_count} Sent</b>, {skipped_count} Unchanged (skipped), {unsent_count} Unsent, {failed_count} Failed &nbsp;|&nbsp;
                   <b>{scheduled_count} Active Events/Watch</b>, {len(delivery_results) - scheduled_count} Unscheduled
                 </td>
               </tr>
@@ -1331,7 +1386,7 @@ def main():
             continue
 
         pdf_hash = hashlib.sha256(pdf_bytes).hexdigest()
-        previous_hash = state.get(date_str)
+        previous_hash, prev_fingerprints = get_date_state(state, date_str)
 
         if previous_hash == pdf_hash and not is_manual_test and not force_diagnostic:
             print(f"[{date_str}] Already processed and unchanged (hash match). Skipping.")
@@ -1341,6 +1396,9 @@ def main():
         extracted_pdf = extract_pdf_lines(pdf_bytes, qod_bank)
         filename = f"VT-10_{date_str}_Frontpage.pdf"
         delivery_results = []
+        # Carry forward prior fingerprints; only overwritten after a successful send so
+        # failed sends / skipped students keep comparing against what they last received.
+        new_fingerprints = dict(prev_fingerprints)
 
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
             smtp.login(GMAIL_USER, GMAIL_APP_PASSWORD)
@@ -1353,6 +1411,10 @@ def main():
                 parsed = parse_student_schedule(extracted_pdf, last_name, first_name)
                 is_weekend = target_dt.weekday() >= 5
                 status_tag = determine_schedule_status(parsed, is_weekend)
+                skey = student_state_key(last_name, first_name)
+                fingerprint = student_schedule_fingerprint(parsed)
+                # No prior fingerprint (new subscriber, failed send, legacy state) -> treated as changed
+                unchanged = prev_fingerprints.get(skey) == fingerprint
 
                 # Default state is UNSENT (sent: False)
                 result_entry = {
@@ -1364,11 +1426,20 @@ def main():
                     "summary": summarize_student_events(parsed),
                     "sent": False,
                     "error": None,
+                    "unchanged": unchanged,
+                    "skipped_unchanged": False,
                 }
 
                 # In forced diagnostic mode, skip sending so "sent" remains False
                 if force_diagnostic:
                     print(f"[{date_str}] Diagnostic check ({idx}/{len(roster)}) — Status: {status_tag}")
+                    delivery_results.append(result_entry)
+                    continue
+
+                # Revised PDF but this student's info is identical to what they already got
+                if unchanged and not is_manual_test:
+                    result_entry["skipped_unchanged"] = True
+                    print(f"[{date_str}] Skipped ({idx}/{len(roster)}) — schedule unchanged — Status: {status_tag}")
                     delivery_results.append(result_entry)
                     continue
 
@@ -1389,10 +1460,12 @@ def main():
                     )
                     smtp.send_message(msg)
                     result_entry["sent"] = True  # Only flips to True after actual SMTP send
+                    new_fingerprints[skey] = fingerprint
                     print(f"[{date_str}] Sent schedule email ({idx}/{len(roster)}) — Status: {status_tag}")
                 except Exception as e:
-                    result_entry["error"] = str(e)
-                    print(f"[{date_str}] ERROR sending schedule email ({idx}/{len(roster)}): {e}")
+                    result_entry["error"] = str(e)  # full detail goes only to the private diagnostic email
+                    # Log only the exception type: SMTP errors can echo the recipient address
+                    print(f"[{date_str}] ERROR sending schedule email ({idx}/{len(roster)}): {type(e).__name__}")
 
                 delivery_results.append(result_entry)
 
@@ -1419,7 +1492,7 @@ def main():
                 print(f"[{date_str}] Sent System Diagnostic Recap to SkedBot inbox.")
 
         if not is_manual_test and not force_diagnostic:
-            state[date_str] = pdf_hash
+            state[date_str] = {"pdf_hash": pdf_hash, "students": new_fingerprints}
             state_modified = True
 
     # Fallback if force_diagnostic was triggered without a test_date and tomorrow's PDF isn't posted yet

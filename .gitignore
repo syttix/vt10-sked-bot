@@ -1,0 +1,4 @@
+# Schedule PDFs contain student names - never commit them
+*.pdf
+__pycache__/
+*.pyc
