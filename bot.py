@@ -1291,15 +1291,24 @@ def main():
     state = load_state()
     qod_bank = load_qod_bank()
     state_modified = False
-    is_manual_test = bool(os.getenv("TEST_DATE", "").strip())
 
-    roster, roster_diag = load_roster(is_manual_test)
+    is_manual_test = bool(os.getenv("TEST_DATE", "").strip())
+    force_diagnostic = os.getenv("FORCE_DIAGNOSTIC", "false").strip().lower() in ("true", "1", "yes")
+    roster, roster_diag = load_roster(is_manual_test and not force_diagnostic)
     target_dates = get_target_dates(now)
 
     print(f"Current Central Time: {now.strftime('%Y-%m-%d %H:%M %Z')}")
-    print(f"Mode: {'TEST MODE (SkedBot Inbox Only)' if is_manual_test else 'LIVE NORMAL MODE'}")
+    if force_diagnostic:
+        print("Mode: FORCE DIAGNOSTIC (Dry-run roster & PDF check -> SkedBot Inbox ONLY)")
+    elif is_manual_test:
+        print("Mode: TEST MODE (Single student preview -> SkedBot Inbox ONLY)")
+    else:
+        print("Mode: LIVE NORMAL MODE")
+
     print(f"Target dates to check: {[d.strftime('%Y-%m-%d') for d in target_dates]}")
     print(f"Active recipients: {len(roster)} subscribed student(s)")
+
+    diagnostic_sent = False
 
     for target_dt in target_dates:
         date_str = target_dt.strftime("%Y-%m-%d")
@@ -1311,7 +1320,7 @@ def main():
         pdf_hash = hashlib.sha256(pdf_bytes).hexdigest()
         previous_hash = state.get(date_str)
 
-        if previous_hash == pdf_hash and not is_manual_test:
+        if previous_hash == pdf_hash and not is_manual_test and not force_diagnostic:
             print(f"[{date_str}] Already processed and unchanged (hash match). Skipping.")
             continue
 
@@ -1327,12 +1336,28 @@ def main():
                 last_name = student["last_name"]
                 first_name = student.get("first_name", "")
                 first_initial = student.get("first_initial", "")
-                recipient_email = GMAIL_USER if is_manual_test else student["email"]
 
                 parsed = parse_student_schedule(extracted_pdf, last_name, first_name)
                 is_weekend = target_dt.weekday() >= 5
                 status_tag = determine_schedule_status(parsed, is_weekend)
 
+                # If force_diagnostic is True, NEVER send student emails
+                if force_diagnostic:
+                    print(f"[{date_str}] Diagnostic dry-run ({idx}/{len(roster)}) — Status: {status_tag}")
+                    delivery_results.append({
+                        "last_name": last_name,
+                        "first_name": first_name,
+                        "first_initial": first_initial,
+                        "email": student["email"],
+                        "status_tag": status_tag,
+                        "summary": summarize_student_events(parsed),
+                        "ok": True,
+                        "error": None,
+                    })
+                    continue
+
+                # Otherwise (Normal mode or single-student TEST_DATE preview):
+                recipient_email = GMAIL_USER if is_manual_test else student["email"]
                 prefix = "[TEST -> SkedBot Inbox] " if is_manual_test else ("[UPDATED] " if is_update else "")
                 subject = (
                     f"{prefix}VT-10 Sked ({target_dt.strftime('%a %m/%d')} - "
@@ -1371,7 +1396,7 @@ def main():
                         "error": str(e),
                     })
 
-            if not is_manual_test:
+            if not is_manual_test or force_diagnostic:
                 diag_subj, diag_plain, diag_html = build_diagnostic_recap_email(
                     now=now,
                     target_dt=target_dt,
@@ -1383,20 +1408,66 @@ def main():
                     roster_diag=roster_diag,
                     delivery_results=delivery_results,
                 )
+                if force_diagnostic:
+                    diag_subj = f"[FORCED DIAGNOSTIC] {diag_subj.removeprefix('[DIAGNOSTIC] ')}"
                 diag_msg = build_email_message(
                     GMAIL_USER, diag_subj, diag_plain, diag_html, pdf_bytes, filename
                 )
                 smtp.send_message(diag_msg)
+                diagnostic_sent = True
                 print(f"[{date_str}] Sent System Diagnostic Recap to SkedBot inbox.")
 
-        if not is_manual_test:
+        if not is_manual_test and not force_diagnostic:
             state[date_str] = pdf_hash
             state_modified = True
+
+    if force_diagnostic and not diagnostic_sent and state:
+        latest_known_date = sorted(state.keys())[-1]
+        print(f"[FORCE DIAGNOSTIC] Target dates not posted yet; falling back to latest known PDF ({latest_known_date}).")
+        fallback_dt = datetime.strptime(latest_known_date, "%Y-%m-%d").replace(tzinfo=TZ)
+        pdf_bytes = fetch_valid_pdf(latest_known_date)
+        if pdf_bytes:
+            pdf_hash = hashlib.sha256(pdf_bytes).hexdigest()
+            extracted_pdf = extract_pdf_lines(pdf_bytes, qod_bank)
+            filename = f"VT-10_{latest_known_date}_Frontpage.pdf"
+            delivery_results = []
+            for idx, student in enumerate(roster, start=1):
+                parsed = parse_student_schedule(extracted_pdf, student["last_name"], student.get("first_name", ""))
+                status_tag = determine_schedule_status(parsed, fallback_dt.weekday() >= 5)
+                print(f"[{latest_known_date}] Diagnostic dry-run ({idx}/{len(roster)}) — Status: {status_tag}")
+                delivery_results.append({
+                    "last_name": student["last_name"],
+                    "first_name": student.get("first_name", ""),
+                    "first_initial": student.get("first_initial", ""),
+                    "email": student["email"],
+                    "status_tag": status_tag,
+                    "summary": summarize_student_events(parsed),
+                    "ok": True,
+                    "error": None,
+                })
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+                smtp.login(GMAIL_USER, GMAIL_APP_PASSWORD)
+                diag_subj, diag_plain, diag_html = build_diagnostic_recap_email(
+                    now=now,
+                    target_dt=fallback_dt,
+                    pdf_hash=pdf_hash,
+                    pdf_size_bytes=len(pdf_bytes),
+                    page_count=extracted_pdf["page_count"],
+                    is_update=False,
+                    extracted_pdf=extracted_pdf,
+                    roster_diag=roster_diag,
+                    delivery_results=delivery_results,
+                )
+                diag_subj = f"[FORCED DIAGNOSTIC] {diag_subj.removeprefix('[DIAGNOSTIC] ')}"
+                diag_msg = build_email_message(
+                    GMAIL_USER, diag_subj, diag_plain, diag_html, pdf_bytes, filename
+                )
+                smtp.send_message(diag_msg)
+                print(f"[{latest_known_date}] Sent Fallback System Diagnostic Recap to SkedBot inbox.")
 
     if state_modified:
         trimmed_state = dict(sorted(state.items())[-15:])
         save_state(trimmed_state)
-
 
 if __name__ == "__main__":
     main()
