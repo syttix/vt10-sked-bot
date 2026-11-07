@@ -106,6 +106,9 @@ def student_schedule_fingerprint(parsed: dict) -> str:
         k: parsed[k]
         for k in ("flights_and_sims", "ground_events", "watches", "duties_and_notes", "leave_tad")
     }
+    # For unscheduled students the phone-muster note decides their status, so it counts as theirs
+    if not any(relevant.values()):
+        relevant["phone_muster_required"] = parsed.get("phone_muster_required", False)
     blob = json.dumps(relevant, sort_keys=True, ensure_ascii=False)
     # Keyed so the public value can't be matched against fingerprints computed from the PDF
     return _keyed_hash("schedule", blob)
@@ -517,11 +520,24 @@ def extract_pdf_lines(pdf_bytes: bytes, qod_bank: dict) -> dict:
         ]
         pages_logical_lines.append(logical_lines)
 
+    # Phone muster is only shown for unscheduled weekday students when the schedule
+    # notes actually call for it (some days unscheduled students have other tasking).
+    # Expected note: "0700-0800: PHONE MUSTER (ASDO 850-452-4669) ALL UNSCHEDULED STUDENTS"
+    muster_lines = [
+        line
+        for logical_lines in pages_logical_lines
+        for line in logical_lines
+        if re.search(r"\bPHONE\s+MUSTER\b", line, re.IGNORECASE)
+        and re.search(r"\bALL\s+UNSCHEDULED\s+STUDENTS\b", line, re.IGNORECASE)
+    ]
+
     return {
         "page_count": doc.page_count,
         "questions": questions,
         "answers": answers,
         "pages_lines": pages_logical_lines,
+        "phone_muster_required": bool(muster_lines),
+        "muster_lines": muster_lines,
     }
 
 
@@ -550,6 +566,9 @@ def build_student_name_regex(last_name: str, first_name: str = "") -> re.Pattern
     return re.compile(pattern, re.IGNORECASE)
 
 
+UNSCHEDULED_STATUSES = ("WEEKEND OFF", "PHONE MUSTER", "UNSCHEDULED")
+
+
 def determine_schedule_status(parsed: dict, is_weekend: bool) -> str:
     """
     Returns the primary status tag for the email subject and header badge:
@@ -557,7 +576,8 @@ def determine_schedule_status(parsed: dict, is_weekend: bool) -> str:
     - Only Watch -> 'WATCH'
     - Flight/Sim/Ground/Note/Leave -> 'SCHEDULED'
     - Unscheduled Weekend -> 'WEEKEND OFF'
-    - Unscheduled Weekday -> 'PHONE MUSTER'
+    - Unscheduled Weekday, schedule notes mention muster -> 'PHONE MUSTER'
+    - Unscheduled Weekday, no muster note -> 'UNSCHEDULED'
     """
     has_watch = bool(parsed["watches"])
     has_other_events = any([
@@ -572,7 +592,9 @@ def determine_schedule_status(parsed: dict, is_weekend: bool) -> str:
         return "WATCH"
     if has_other_events:
         return "SCHEDULED"
-    return "WEEKEND OFF" if is_weekend else "PHONE MUSTER"
+    if is_weekend:
+        return "WEEKEND OFF"
+    return "PHONE MUSTER" if parsed.get("phone_muster_required") else "UNSCHEDULED"
 
 
 def parse_student_schedule(extracted_pdf: dict, last_name: str, first_name: str = "") -> dict:
@@ -586,6 +608,7 @@ def parse_student_schedule(extracted_pdf: dict, last_name: str, first_name: str 
         "watches": [],
         "duties_and_notes": [],
         "leave_tad": False,
+        "phone_muster_required": extracted_pdf.get("phone_muster_required", False),
     }
 
     name_regex = build_student_name_regex(last_name, first_name)
@@ -671,7 +694,7 @@ def build_plain_text_body(target_dt: datetime, parsed: dict, is_update: bool, fi
     )
     is_weekend = target_dt.weekday() >= 5
     status_tag = determine_schedule_status(parsed, is_weekend)
-    has_events = status_tag not in ("WEEKEND OFF", "PHONE MUSTER")
+    has_events = status_tag not in UNSCHEDULED_STATUSES
 
     lines = []
     if is_update:
@@ -683,8 +706,10 @@ def build_plain_text_body(target_dt: datetime, parsed: dict, is_update: bool, fi
     if not has_events:
         if is_weekend:
             lines.append("\nSTATUS: UNSCHEDULED — Weekend (No phone muster required).")
-        else:
+        elif status_tag == "PHONE MUSTER":
             lines.append("\nSTATUS: UNSCHEDULED — 0700-0800 Phone Muster required (ASDO 850-452-4669).")
+        else:
+            lines.append("\nSTATUS: UNSCHEDULED — See the schedule notes in the attached PDF.")
     else:
         for f in parsed["flights_and_sims"]:
             icon = "🖥️ SIM" if f.get("is_sim") else "✈️ FLIGHT"
@@ -749,7 +774,7 @@ def build_html_body(target_dt: datetime, parsed: dict, is_update: bool, filename
     )
     is_weekend = target_dt.weekday() >= 5
     status_tag = determine_schedule_status(parsed, is_weekend)
-    has_events = status_tag not in ("WEEKEND OFF", "PHONE MUSTER")
+    has_events = status_tag not in UNSCHEDULED_STATUSES
 
     # Dynamic Header Gradient & Badge Colors based on schedule status
     if status_tag == "WATCH":
@@ -767,6 +792,11 @@ def build_html_body(target_dt: datetime, parsed: dict, is_update: bool, filename
         header_grad = "linear-gradient(135deg, #063b22 0%, #0f172a 45%, #334155 100%)"
         sub_color = "#cbd5e1"
         badge_bg, badge_fg, badge_text = "#e2e8f0", "#0f172a", "WEEKEND OFF"
+    elif status_tag == "UNSCHEDULED":
+        header_bg = "#1e293b"
+        header_grad = "linear-gradient(135deg, #063b22 0%, #1e293b 50%, #475569 100%)"
+        sub_color = "#cbd5e1"
+        badge_bg, badge_fg, badge_text = "#e2e8f0", "#1e293b", "UNSCHEDULED"
     else:
         header_bg = "#78350f"
         header_grad = "linear-gradient(135deg, #043921 0%, #78350f 50%, #d97706 100%)"
@@ -789,6 +819,13 @@ def build_html_body(target_dt: datetime, parsed: dict, is_update: bool, filename
             <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:20px; text-align:center; color:#334155;">
               <div style="font-size:16px; font-weight:700; margin-bottom:4px;">Unscheduled — Weekend</div>
               <div style="font-size:14px; color:#64748b;">No events found for <b>{html.escape(parsed['student_name'])}</b>. Enjoy your weekend!</div>
+            </div>
+            """)
+        elif status_tag == "UNSCHEDULED":
+            cards_html.append(f"""
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-left:5px solid #475569; border-radius:8px; padding:18px; color:#334155;">
+              <div style="font-size:16px; font-weight:700; margin-bottom:4px;">Unscheduled</div>
+              <div style="font-size:14px; color:#64748b;">No events found for <b>{html.escape(parsed['student_name'])}</b>. See the schedule notes in the attached PDF.</div>
             </div>
             """)
         else:
@@ -1132,6 +1169,11 @@ def build_diagnostic_recap_email(
     active_q_keys = [k for k in ("EOD", "IOD", "QOD", "SOP", "WOD") if q.get(k, "N/A") != "N/A"]
     matched_q_count = sum(1 for k in active_q_keys if a.get(k))
     missing_q_keys = [k for k in active_q_keys if not a.get(k)]
+    muster_lines = extracted_pdf.get("muster_lines", [])
+    muster_summary = (
+        f"Required — note found: {muster_lines[0]}" if muster_lines
+        else "Not mentioned in schedule notes (unscheduled weekday students shown as UNSCHEDULED)"
+    )
 
     subject = (
         f"[DIAGNOSTIC] VT-10 SkedBot Recap ({target_dt.strftime('%a %m/%d')}): "
@@ -1152,6 +1194,7 @@ def build_diagnostic_recap_email(
         f"{unsent_count} Unsent, {failed_count} Failed",
         f"QOD Bank Matches: {matched_q_count}/{len(active_q_keys)} matched "
         f"{'(Missing: ' + ', '.join(missing_q_keys) + ')' if missing_q_keys else '(100%)'}",
+        f"Phone Muster:     {muster_summary}",
         "\nRECIPIENT BREAKDOWN:",
         "-" * 60,
     ]
@@ -1273,6 +1316,10 @@ def build_diagnostic_recap_email(
                   {roster_diag['active_count']} active subscribers ({roster_diag['raw_rows_processed']} form rows, {roster_diag['unsubscribed_count']} unsubscribed)
                   {f"<br><span style='color:#dc2626;'>Error: {html.escape(str(roster_diag['error']))}</span>" if roster_diag['error'] else ""}
                 </td>
+              </tr>
+              <tr>
+                <td style="color:#64748b; font-weight:600;">Phone Muster</td>
+                <td style="color:#0f172a;">{html.escape(muster_summary)}</td>
               </tr>
               <tr>
                 <td style="color:#64748b; font-weight:600;">Delivery Totals</td>
