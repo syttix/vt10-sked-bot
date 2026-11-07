@@ -19,6 +19,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Configuration
 DEFAULT_LAST_NAME = os.getenv("STUDENT_LAST_NAME", "Hagemaster")
+DEFAULT_FIRST_NAME = os.getenv("STUDENT_FIRST_NAME", "Cameron")
 GMAIL_USER = os.environ["GMAIL_USER"].strip()
 GMAIL_APP_PASSWORD = os.environ["GMAIL_APP_PASSWORD"].strip()
 ROSTER_CSV_URL = os.getenv("ROSTER_CSV_URL", "").strip()
@@ -32,17 +33,10 @@ TZ = ZoneInfo("America/Chicago")
 RANKS = r"(?:CIV|ENS|LTJG|LT|LCDR|CDR|CAPT|Capt|Maj|LtCol|Col|1stLt|2ndLt|CWO\d|ctr)"
 NAME_PATTERN = rf"[A-Za-z'\-]+,\s*[A-Za-z\.]+,\s*{RANKS}"
 SIM_KEYWORDS = ("UTD", "OFT", "IFT", "VTD", "SIM", "MCS", "2B47", "2F198", "ACA")
-WATCH_KEYWORDS_REGEX = r"\b(ASDO|SDO|CDO|ODO|FDO|Duty\s+Officer|SUPER|Watches|STANDBY|STBY)\b"
+WATCH_KEYWORDS_REGEX = r"\b(ASDO|AFDO|SDO|CDO|ODO|FDO|Duty\s+Officer|SUPER|WHEELS\s+WATCH|DUTY\s+DRIVER|Watches|STANDBY|STDBY|STBY|ADMIN\s+HOLD)\b"
 
 
 def get_target_dates(now: datetime) -> list[datetime]:
-    """
-    1. If TEST_DATE="YYYY-MM-DD" is provided via workflow_dispatch, check that exact date.
-    2. Otherwise:
-       - Mon-Thu (0-3): Check tomorrow (+1 day).
-       - Fri (4): Check Saturday (+1), Sunday (+2), and Monday (+3).
-       - Sat-Sun (5-6): If triggered manually on a weekend, check through Monday.
-    """
     test_date = os.getenv("TEST_DATE", "").strip()
     if test_date:
         return [datetime.strptime(test_date, "%Y-%m-%d").replace(tzinfo=TZ)]
@@ -87,10 +81,8 @@ def load_qod_bank() -> dict:
 def load_roster(is_manual_test: bool) -> tuple[list[dict], dict]:
     """
     Loads students from the live Google Sheet CSV (ROSTER_CSV_URL).
-    Processes rows in chronological order so a student's newest form submission
-    automatically updates their email or unsubscribes them.
+    Stores full first_name and derived first_initial for multi-squadron compatibility.
     TEST SAFETY LOCK: If is_manual_test is True, routes ONLY to GMAIL_USER (the SkedBot email).
-    Returns (roster_list, roster_diagnostics_dict).
     """
     diag = {
         "csv_configured": bool(ROSTER_CSV_URL),
@@ -103,12 +95,10 @@ def load_roster(is_manual_test: bool) -> tuple[list[dict], dict]:
 
     if is_manual_test:
         test_student = os.getenv("TEST_STUDENT", "").strip() or DEFAULT_LAST_NAME
-        print(
-            f"[TEST MODE ACTIVE] Routing test schedule for '{test_student}' "
-            f"strictly to SkedBot inbox ({GMAIL_USER})."
-        )
+        print("[TEST MODE ACTIVE] Routing test schedule strictly to SkedBot inbox.")
         test_roster = [{
             "last_name": test_student,
+            "first_name": "",
             "first_initial": "",
             "email": GMAIL_USER,
             "is_admin": True,
@@ -128,7 +118,7 @@ def load_roster(is_manual_test: bool) -> tuple[list[dict], dict]:
                 diag["raw_rows_processed"] += 1
                 norm_row = {k.strip().lower(): (v or "").strip() for k, v in row.items() if k}
                 last_name = next((v for k, v in norm_row.items() if "last" in k), "")
-                first_init = next(
+                first_name = next(
                     (v for k, v in norm_row.items() if "first" in k or "initial" in k), ""
                 )
                 email = next(
@@ -142,7 +132,8 @@ def load_roster(is_manual_test: bool) -> tuple[list[dict], dict]:
                 if not last_name or not email:
                     continue
 
-                first_init = first_init[:1].upper()
+                first_name_clean = first_name.strip()
+                first_init = first_name_clean[:1].upper()
                 key = f"{last_name.lower()}_{first_init.lower()}"
 
                 if "unsub" in action.lower() or "stop" in action.lower():
@@ -152,6 +143,7 @@ def load_roster(is_manual_test: bool) -> tuple[list[dict], dict]:
                 else:
                     roster_by_key[key] = {
                         "last_name": last_name,
+                        "first_name": first_name_clean,
                         "first_initial": first_init,
                         "email": email,
                         "is_admin": last_name.lower() == DEFAULT_LAST_NAME.lower(),
@@ -162,11 +154,11 @@ def load_roster(is_manual_test: bool) -> tuple[list[dict], dict]:
 
     roster = list(roster_by_key.values())
 
-    # Fallback to SkedBot inbox if CSV is empty or unreachable
     if not roster:
         roster = [{
             "last_name": DEFAULT_LAST_NAME,
-            "first_initial": "C",
+            "first_name": DEFAULT_FIRST_NAME,
+            "first_initial": DEFAULT_FIRST_NAME[:1].upper(),
             "email": GMAIL_USER,
             "is_admin": True,
         }]
@@ -176,7 +168,6 @@ def load_roster(is_manual_test: bool) -> tuple[list[dict], dict]:
 
 
 def normalize_q_text(text: str) -> str:
-    """Strips parenthetical instruction refs, blanks, and punctuation for fuzzy matching."""
     t = text.upper()
     t = re.sub(r"\((?:COMTRAWINGSIX|TRARONTEN|CNAF|FAR|PG).*?\)", " ", t)
     t = re.sub(r"_+", " ", t)
@@ -228,7 +219,6 @@ def lookup_qod_answer(category: str, question_text: str, qod_bank: dict) -> str 
 
 
 def is_simulator_event(device: str, event_code: str) -> bool:
-    """Determines whether an event is a Simulator (🖥️) or an Aircraft Flight (✈️)."""
     dev_upper = device.upper()
     evt_upper = event_code.upper()
     if any(k in dev_upper for k in SIM_KEYWORDS):
@@ -396,7 +386,6 @@ def parse_ground_block(lines: list[str]) -> dict:
 
 
 def is_watch_or_duty_line(line: str) -> bool:
-    """Detects whether a schedule line is a Watch/Duty/Standby assignment."""
     if re.search(WATCH_KEYWORDS_REGEX, line, re.IGNORECASE):
         return True
     if re.match(r"^\d{4}-\d{4}:", line):
@@ -405,13 +394,9 @@ def is_watch_or_duty_line(line: str) -> bool:
 
 
 def parse_watch_or_duty_line(line: str, last_name: str) -> dict:
-    """
-    Parses an ASDO / SDO / ODO / CDO / Standby line into structured fields
-    so it renders as its own dedicated Watch card.
-    """
     role_match = re.search(WATCH_KEYWORDS_REGEX, line, re.IGNORECASE)
     watch_type = role_match.group(1).upper() if role_match else "DUTY / WATCH"
-    if watch_type == "STBY":
+    if watch_type in ("STBY", "STDBY"):
         watch_type = "STANDBY"
 
     time_match = re.search(r"(\d{4})\s*-\s*(\d{4})", line)
@@ -460,7 +445,6 @@ def parse_watch_or_duty_line(line: str, last_name: str) -> dict:
 
 
 def extract_pdf_lines(pdf_bytes: bytes, qod_bank: dict) -> dict:
-    """Pre-extracts page lines and QOD answers once per PDF so multiple students parse fast."""
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     full_text_pages = [page.get_text("text") for page in doc]
 
@@ -474,6 +458,10 @@ def extract_pdf_lines(pdf_bytes: bytes, qod_bank: dict) -> dict:
 
     pages_logical_lines = []
     for page in doc:
+        page_text = page.get_text("text")
+        if "Build Report by Go's" in page_text:
+            continue
+
         words = page.get_text("words")
         lines_by_y = {}
         for w in words:
@@ -494,9 +482,60 @@ def extract_pdf_lines(pdf_bytes: bytes, qod_bank: dict) -> dict:
     }
 
 
-def parse_student_schedule(extracted_pdf: dict, last_name: str, first_initial: str = "") -> dict:
+def build_student_name_regex(last_name: str, first_name: str = "") -> re.Pattern:
+    """
+    Matches:
+    - "Lastname, Firstname" (VT-2 full first name style, with optional #)
+    - "Lastname, F" (VT-10 first initial style)
+    - Standalone "Lastname" when NOT followed by a comma and a different initial/name
+      (so "DET ASDO Barr" or "LEAVE/TAD: HAGEMASTER" matches, while a sibling/classmate
+      with the same last name but different first name/initial is excluded).
+    """
+    clean_first = re.sub(r"[^A-Za-z]", "", first_name or "")
+    if not clean_first:
+        return re.compile(rf"\b{re.escape(last_name)}\b", re.IGNORECASE)
+
+    first_init = clean_first[0]
+    pattern = (
+        rf"\b{re.escape(last_name)}"
+        rf"(?:"
+        rf",\s*{re.escape(clean_first)}\b"
+        rf"|,\s*{re.escape(first_init)}(?:\b|\.)"
+        rf"|(?![,\s]+[A-Za-z])"
+        rf")"
+    )
+    return re.compile(pattern, re.IGNORECASE)
+
+
+def determine_schedule_status(parsed: dict, is_weekend: bool) -> str:
+    """
+    Returns the primary status tag for the email subject and header badge:
+    - Both Flight/Sim/Ground AND Watch -> 'SCHEDULED + WATCH'
+    - Only Watch -> 'WATCH'
+    - Flight/Sim/Ground/Note/Leave -> 'SCHEDULED'
+    - Unscheduled Weekend -> 'WEEKEND OFF'
+    - Unscheduled Weekday -> 'PHONE MUSTER'
+    """
+    has_watch = bool(parsed["watches"])
+    has_other_events = any([
+        parsed["flights_and_sims"],
+        parsed["ground_events"],
+        parsed["duties_and_notes"],
+        parsed["leave_tad"],
+    ])
+    if has_watch and has_other_events:
+        return "SCHEDULED + WATCH"
+    if has_watch:
+        return "WATCH"
+    if has_other_events:
+        return "SCHEDULED"
+    return "WEEKEND OFF" if is_weekend else "PHONE MUSTER"
+
+
+def parse_student_schedule(extracted_pdf: dict, last_name: str, first_name: str = "") -> dict:
     parsed = {
         "student_name": last_name,
+        "first_name": first_name,
         "questions": extracted_pdf["questions"],
         "answers": extracted_pdf["answers"],
         "flights_and_sims": [],
@@ -506,13 +545,7 @@ def parse_student_schedule(extracted_pdf: dict, last_name: str, first_initial: s
         "leave_tad": False,
     }
 
-    if first_initial:
-        name_regex = re.compile(
-            rf"\b{re.escape(last_name)}(?:,\s*{re.escape(first_initial[0])}\b|\b)",
-            re.IGNORECASE,
-        )
-    else:
-        name_regex = re.compile(rf"\b{re.escape(last_name)}\b", re.IGNORECASE)
+    name_regex = build_student_name_regex(last_name, first_name)
 
     for logical_lines in extracted_pdf["pages_lines"]:
         current_ground_lines = []
@@ -524,7 +557,7 @@ def parse_student_schedule(extracted_pdf: dict, last_name: str, first_initial: s
 
             # Ground Event block start (excludes watch lines like '0730-1530 ASDO ...')
             if re.match(
-                r"^\d{4}-\d{4}\s+(?!(?:ASDO|SDO|ODO|CDO|FDO|DUTY|WATCH|STBY|STANDBY)\b)[A-Z0-9]{3,}",
+                r"^\d{4}-\d{4}\s+(?!(?:ASDO|AFDO|SDO|ODO|CDO|FDO|DUTY|WATCH|STBY|STDBY|STANDBY)\b)[A-Z0-9]{3,}",
                 line,
                 re.IGNORECASE,
             ):
@@ -565,10 +598,6 @@ def parse_student_schedule(extracted_pdf: dict, last_name: str, first_initial: s
 
 
 def build_checkered_strip_html() -> str:
-    """
-    Renders a crisp 2-row VT-10 Green (#005a32) & White (#ffffff) checkerboard banner
-    using HTML table cells so Gmail Mobile & Desktop never strip it.
-    """
     num_cols = 16
     row1_cells = []
     row2_cells = []
@@ -598,13 +627,8 @@ def build_plain_text_body(target_dt: datetime, parsed: dict, is_update: bool, fi
         f"!{target_dt.strftime('%Y-%m-%d')}!VT-10!Frontpage.pdf"
     )
     is_weekend = target_dt.weekday() >= 5
-    has_events = any([
-        parsed["flights_and_sims"],
-        parsed["ground_events"],
-        parsed["watches"],
-        parsed["duties_and_notes"],
-        parsed["leave_tad"],
-    ])
+    status_tag = determine_schedule_status(parsed, is_weekend)
+    has_events = status_tag not in ("WEEKEND OFF", "PHONE MUSTER")
 
     lines = []
     if is_update:
@@ -668,7 +692,7 @@ def build_plain_text_body(target_dt: datetime, parsed: dict, is_update: bool, fi
     lines.append("\n" + "=" * 54)
     lines.append(f"Attached: {filename}  |  Open Direct CNATRA Link: {pdf_url}")
     if SIGNUP_FORM_URL:
-        lines.append(f"Sign Up / Unsubscribe (Google Form): {SIGNUP_FORM_URL}")
+        lines.append(f"Manage Subscription (Sign Up / Update / Unsubscribe): {SIGNUP_FORM_URL}")
     lines.append(f"Bot Contact: {GMAIL_USER}")
     lines.append(f"Created by ENS Hagemaster  |  GitHub: {GITHUB_REPO_URL}")
     return "\n".join(lines)
@@ -681,20 +705,20 @@ def build_html_body(target_dt: datetime, parsed: dict, is_update: bool, filename
         f"!{target_dt.strftime('%Y-%m-%d')}!VT-10!Frontpage.pdf"
     )
     is_weekend = target_dt.weekday() >= 5
-    has_events = any([
-        parsed["flights_and_sims"],
-        parsed["ground_events"],
-        parsed["watches"],
-        parsed["duties_and_notes"],
-        parsed["leave_tad"],
-    ])
+    status_tag = determine_schedule_status(parsed, is_weekend)
+    has_events = status_tag not in ("WEEKEND OFF", "PHONE MUSTER")
 
-    # Dynamic Header Gradient & Badge Colors based on schedule status (no emojis in banner)
-    if has_events:
+    # Dynamic Header Gradient & Badge Colors based on schedule status
+    if status_tag == "WATCH":
+        header_bg = "#78350f"
+        header_grad = "linear-gradient(135deg, #451a03 0%, #92400e 55%, #b45309 100%)"
+        sub_color = "#fde68a"
+        badge_bg, badge_fg, badge_text = "#fef3c7", "#78350f", "WATCH"
+    elif has_events:
         header_bg = "#004d2c"
         header_grad = "linear-gradient(135deg, #032b19 0%, #005a32 55%, #0d9488 100%)"
         sub_color = "#a7f3d0"
-        badge_bg, badge_fg, badge_text = "#ffffff", "#005a32", "SCHEDULED"
+        badge_bg, badge_fg, badge_text = "#ffffff", "#005a32", status_tag
     elif is_weekend:
         header_bg = "#1e293b"
         header_grad = "linear-gradient(135deg, #063b22 0%, #0f172a 45%, #334155 100%)"
@@ -966,14 +990,15 @@ def build_html_body(target_dt: datetime, parsed: dict, is_update: bool, filename
 
     checkerboard_html = build_checkered_strip_html()
 
+    # Single unified Google Form link (no duplicate links)
     form_links_html = ""
     if SIGNUP_FORM_URL:
         safe_form_url = html.escape(SIGNUP_FORM_URL)
         form_links_html = f"""
         <div style="margin-top:10px; padding-top:10px; border-top:1px dashed #e2e8f0;">
-          <a href="{safe_form_url}" style="color:#005a32; text-decoration:underline; font-weight:700;">Classmate Sign-Up</a>
-          &nbsp;&bull;&nbsp;
-          <a href="{safe_form_url}" style="color:#64748b; text-decoration:underline; font-weight:600;">Unsubscribe / Update Email</a>
+          <a href="{safe_form_url}" style="color:#005a32; text-decoration:underline; font-weight:700;">
+            Manage Subscription (Sign Up / Update / Unsubscribe)
+          </a>
         </div>
         """
 
@@ -1054,15 +1079,13 @@ def build_diagnostic_recap_email(
     roster_diag: dict,
     delivery_results: list[dict],
 ) -> tuple[str, str, str]:
-    """
-    Builds the System Diagnostic & Daily Distribution Recap email sent to the SkedBot account itself
-    after every live distribution run.
-    """
     date_code = target_dt.strftime("%Y-%m-%d")
     date_pretty = target_dt.strftime("%a %m/%d/%Y")
     sent_ok = sum(1 for r in delivery_results if r["ok"])
     failed_count = len(delivery_results) - sent_ok
-    scheduled_count = sum(1 for r in delivery_results if r["status_tag"] == "SCHEDULED")
+    scheduled_count = sum(
+        1 for r in delivery_results if r["status_tag"] in ("SCHEDULED", "WATCH", "SCHEDULED + WATCH")
+    )
 
     q = extracted_pdf["questions"]
     a = extracted_pdf["answers"]
@@ -1072,10 +1095,9 @@ def build_diagnostic_recap_email(
 
     subject = (
         f"[DIAGNOSTIC] VT-10 SkedBot Recap ({target_dt.strftime('%a %m/%d')}): "
-        f"{sent_ok}/{len(delivery_results)} Sent | {scheduled_count} Scheduled"
+        f"{sent_ok}/{len(delivery_results)} Sent | {scheduled_count} Active Events/Watch"
     )
 
-    # Plain-text version
     plain_lines = [
         f"VT-10 SkedBot System Diagnostic & Recap — {date_pretty}",
         "=" * 60,
@@ -1090,24 +1112,39 @@ def build_diagnostic_recap_email(
         "-" * 60,
     ]
     for r in delivery_results:
+        display_name = (
+            f"{r['last_name']}, {r['first_name']}"
+            if r.get("first_name")
+            else r["last_name"]
+        )
         plain_lines.append(
-            f"• {r['last_name']} ({r['email']}): {r['status_tag']} | "
+            f"• {display_name} ({r['email']}): {r['status_tag']} | "
             f"{r['summary']} | {'SENT OK' if r['ok'] else 'ERROR: ' + str(r['error'])}"
         )
 
-    # HTML version
     rows_html = ""
     for r in delivery_results:
-        status_badge_color = "#16a34a" if r["status_tag"] == "SCHEDULED" else "#64748b"
+        if "WATCH" in r["status_tag"]:
+            status_badge_color = "#b45309"
+        elif r["status_tag"] == "SCHEDULED":
+            status_badge_color = "#16a34a"
+        else:
+            status_badge_color = "#64748b"
+
         deliv_badge = (
             '<span style="color:#15803d; font-weight:700;">✓ Sent</span>'
             if r["ok"]
             else f'<span style="color:#dc2626; font-weight:700;">✗ {html.escape(str(r["error"]))}</span>'
         )
+        display_name = (
+            f"{r['last_name']}, {r['first_name']}"
+            if r.get("first_name")
+            else r["last_name"]
+        )
         rows_html += f"""
         <tr>
           <td style="padding:8px 10px; border-bottom:1px solid #e2e8f0; font-weight:700; color:#0f172a;">
-            {html.escape(r['last_name'])}{f", {html.escape(r['first_initial'])}" if r['first_initial'] else ""}
+            {html.escape(display_name)}
           </td>
           <td style="padding:8px 10px; border-bottom:1px solid #e2e8f0; color:#475569; font-size:12px;">
             {html.escape(r['email'])}
@@ -1180,7 +1217,7 @@ def build_diagnostic_recap_email(
                 <td style="color:#64748b; font-weight:600;">Delivery Totals</td>
                 <td style="color:#0f172a;">
                   <b>{sent_ok} Sent OK</b>, {failed_count} Failed &nbsp;|&nbsp;
-                  <b>{scheduled_count} Scheduled</b>, {len(delivery_results) - scheduled_count} Unscheduled
+                  <b>{scheduled_count} Active Events/Watch</b>, {len(delivery_results) - scheduled_count} Unscheduled
                 </td>
               </tr>
             </table>
@@ -1267,7 +1304,7 @@ def main():
     print(f"Current Central Time: {now.strftime('%Y-%m-%d %H:%M %Z')}")
     print(f"Mode: {'TEST MODE (SkedBot Inbox Only)' if is_manual_test else 'LIVE NORMAL MODE'}")
     print(f"Target dates to check: {[d.strftime('%Y-%m-%d') for d in target_dates]}")
-    print(f"Active recipients ({len(roster)}): {[r['last_name'] for r in roster]}")
+    print(f"Active recipients: {len(roster)} subscribed student(s)")
 
     for target_dt in target_dates:
         date_str = target_dt.strftime("%Y-%m-%d")
@@ -1291,27 +1328,16 @@ def main():
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
             smtp.login(GMAIL_USER, GMAIL_APP_PASSWORD)
 
-            for student in roster:
+            for idx, student in enumerate(roster, start=1):
                 last_name = student["last_name"]
+                first_name = student.get("first_name", "")
                 first_initial = student.get("first_initial", "")
-                # Double safety lock: in test mode, ALWAYS send to GMAIL_USER
                 recipient_email = GMAIL_USER if is_manual_test else student["email"]
 
-                parsed = parse_student_schedule(extracted_pdf, last_name, first_initial)
-                has_events = any([
-                    parsed["flights_and_sims"],
-                    parsed["ground_events"],
-                    parsed["watches"],
-                    parsed["duties_and_notes"],
-                    parsed["leave_tad"],
-                ])
+                parsed = parse_student_schedule(extracted_pdf, last_name, first_name)
                 is_weekend = target_dt.weekday() >= 5
+                status_tag = determine_schedule_status(parsed, is_weekend)
 
-                status_tag = (
-                    "SCHEDULED"
-                    if has_events
-                    else ("WEEKEND OFF" if is_weekend else "PHONE MUSTER")
-                )
                 prefix = "[TEST -> SkedBot Inbox] " if is_manual_test else ("[UPDATED] " if is_update else "")
                 subject = (
                     f"{prefix}VT-10 Sked ({target_dt.strftime('%a %m/%d')} - "
@@ -1326,9 +1352,10 @@ def main():
                         recipient_email, subject, plain_body, html_body, pdf_bytes, filename
                     )
                     smtp.send_message(msg)
-                    print(f"[{date_str}] Sent to {last_name}: {subject}")
+                    print(f"[{date_str}] Sent schedule email ({idx}/{len(roster)}) — Status: {status_tag}")
                     delivery_results.append({
                         "last_name": last_name,
+                        "first_name": first_name,
                         "first_initial": first_initial,
                         "email": recipient_email,
                         "status_tag": status_tag,
@@ -1337,9 +1364,10 @@ def main():
                         "error": None,
                     })
                 except Exception as e:
-                    print(f"[{date_str}] ERROR sending to {last_name}: {e}")
+                    print(f"[{date_str}] ERROR sending schedule email ({idx}/{len(roster)}): {e}")
                     delivery_results.append({
                         "last_name": last_name,
+                        "first_name": first_name,
                         "first_initial": first_initial,
                         "email": recipient_email,
                         "status_tag": status_tag,
@@ -1348,7 +1376,6 @@ def main():
                         "error": str(e),
                     })
 
-            # On normal daily runs, send the System Diagnostic & Recap email to SkedBot itself
             if not is_manual_test:
                 diag_subj, diag_plain, diag_html = build_diagnostic_recap_email(
                     now=now,
