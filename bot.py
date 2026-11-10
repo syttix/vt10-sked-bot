@@ -1,4 +1,5 @@
 import os
+import sys
 import io
 import csv
 import re
@@ -1424,6 +1425,7 @@ def main():
     print(f"Active recipients: {len(roster)} subscribed student(s)")
 
     diagnostic_sent = False
+    run_had_errors = False
 
     for target_dt in target_dates:
         date_str = target_dt.strftime("%Y-%m-%d")
@@ -1447,98 +1449,116 @@ def main():
         # failed sends / skipped students keep comparing against what they last received.
         new_fingerprints = dict(prev_fingerprints)
 
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
-            smtp.login(GMAIL_USER, GMAIL_APP_PASSWORD)
+        # Anything that fails here must NOT prevent state.json from being saved below,
+        # otherwise the next run would treat the PDF as new and re-email every student.
+        students_loop_completed = False
+        try:
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+                smtp.login(GMAIL_USER, GMAIL_APP_PASSWORD)
 
-            for idx, student in enumerate(roster, start=1):
-                last_name = student["last_name"]
-                first_name = student.get("first_name", "")
-                first_initial = student.get("first_initial", "")
+                for idx, student in enumerate(roster, start=1):
+                    last_name = student["last_name"]
+                    first_name = student.get("first_name", "")
+                    first_initial = student.get("first_initial", "")
 
-                parsed = parse_student_schedule(extracted_pdf, last_name, first_name)
-                is_weekend = target_dt.weekday() >= 5
-                status_tag = determine_schedule_status(parsed, is_weekend)
-                skey = student_state_key(last_name, first_name)
-                fingerprint = student_schedule_fingerprint(parsed)
-                # No prior fingerprint (new subscriber, failed send, legacy state) -> treated as changed
-                unchanged = prev_fingerprints.get(skey) == fingerprint
+                    parsed = parse_student_schedule(extracted_pdf, last_name, first_name)
+                    is_weekend = target_dt.weekday() >= 5
+                    status_tag = determine_schedule_status(parsed, is_weekend)
+                    skey = student_state_key(last_name, first_name)
+                    fingerprint = student_schedule_fingerprint(parsed)
+                    # No prior fingerprint (new subscriber, failed send, legacy state) -> treated as changed
+                    unchanged = prev_fingerprints.get(skey) == fingerprint
 
-                # Default state is UNSENT (sent: False)
-                result_entry = {
-                    "last_name": last_name,
-                    "first_name": first_name,
-                    "first_initial": first_initial,
-                    "email": student["email"],
-                    "status_tag": status_tag,
-                    "summary": summarize_student_events(parsed),
-                    "sent": False,
-                    "error": None,
-                    "unchanged": unchanged,
-                    "skipped_unchanged": False,
-                }
+                    # Default state is UNSENT (sent: False)
+                    result_entry = {
+                        "last_name": last_name,
+                        "first_name": first_name,
+                        "first_initial": first_initial,
+                        "email": student["email"],
+                        "status_tag": status_tag,
+                        "summary": summarize_student_events(parsed),
+                        "sent": False,
+                        "error": None,
+                        "unchanged": unchanged,
+                        "skipped_unchanged": False,
+                    }
 
-                # In forced diagnostic mode, skip sending so "sent" remains False
-                if force_diagnostic:
-                    print(f"[{date_str}] Diagnostic check ({idx}/{len(roster)}) — Status: {status_tag}")
-                    delivery_results.append(result_entry)
-                    continue
+                    # In forced diagnostic mode, skip sending so "sent" remains False
+                    if force_diagnostic:
+                        print(f"[{date_str}] Diagnostic check ({idx}/{len(roster)}) — Status: {status_tag}")
+                        delivery_results.append(result_entry)
+                        continue
 
-                # Revised PDF but this student's info is identical to what they already got
-                if unchanged and not is_manual_test:
-                    result_entry["skipped_unchanged"] = True
-                    print(f"[{date_str}] Skipped ({idx}/{len(roster)}) — schedule unchanged — Status: {status_tag}")
-                    delivery_results.append(result_entry)
-                    continue
+                    # Revised PDF but this student's info is identical to what they already got
+                    if unchanged and not is_manual_test:
+                        result_entry["skipped_unchanged"] = True
+                        print(f"[{date_str}] Skipped ({idx}/{len(roster)}) — schedule unchanged — Status: {status_tag}")
+                        delivery_results.append(result_entry)
+                        continue
 
-                recipient_email = GMAIL_USER if is_manual_test else student["email"]
-                result_entry["email"] = recipient_email
-                prefix = "[TEST -> SkedBot Inbox] " if is_manual_test else ("[UPDATED] " if is_update else "")
-                subject = (
-                    f"{prefix}VT-10 Sked ({target_dt.strftime('%a %m/%d')} - "
-                    f"{last_name}): {status_tag}"
-                )
-
-                plain_body = build_plain_text_body(target_dt, parsed, is_update, filename)
-                html_body = build_html_body(target_dt, parsed, is_update, filename)
-
-                try:
-                    msg = build_email_message(
-                        recipient_email, subject, plain_body, html_body, pdf_bytes, filename
+                    recipient_email = GMAIL_USER if is_manual_test else student["email"]
+                    result_entry["email"] = recipient_email
+                    prefix = "[TEST -> SkedBot Inbox] " if is_manual_test else ("[UPDATED] " if is_update else "")
+                    subject = (
+                        f"{prefix}VT-10 Sked ({target_dt.strftime('%a %m/%d')} - "
+                        f"{last_name}): {status_tag}"
                     )
-                    smtp.send_message(msg)
-                    result_entry["sent"] = True  # Only flips to True after actual SMTP send
-                    new_fingerprints[skey] = fingerprint
-                    print(f"[{date_str}] Sent schedule email ({idx}/{len(roster)}) — Status: {status_tag}")
-                except Exception as e:
-                    result_entry["error"] = str(e)  # full detail goes only to the private diagnostic email
-                    # Log only the exception type: SMTP errors can echo the recipient address
-                    print(f"[{date_str}] ERROR sending schedule email ({idx}/{len(roster)}): {type(e).__name__}")
 
-                delivery_results.append(result_entry)
+                    plain_body = build_plain_text_body(target_dt, parsed, is_update, filename)
+                    html_body = build_html_body(target_dt, parsed, is_update, filename)
 
-            # Send Diagnostic Recap to SkedBot inbox on normal daily runs OR when force_diagnostic is True
-            if not is_manual_test or force_diagnostic:
-                diag_subj, diag_plain, diag_html = build_diagnostic_recap_email(
-                    now=now,
-                    target_dt=target_dt,
-                    pdf_hash=pdf_hash,
-                    pdf_size_bytes=len(pdf_bytes),
-                    page_count=extracted_pdf["page_count"],
-                    is_update=is_update,
-                    extracted_pdf=extracted_pdf,
-                    roster_diag=roster_diag,
-                    delivery_results=delivery_results,
-                )
-                if force_diagnostic:
-                    diag_subj = f"[FORCED DIAGNOSTIC] {diag_subj.removeprefix('[DIAGNOSTIC] ')}"
-                diag_msg = build_email_message(
-                    GMAIL_USER, diag_subj, diag_plain, diag_html, pdf_bytes, filename
-                )
-                smtp.send_message(diag_msg)
-                diagnostic_sent = True
-                print(f"[{date_str}] Sent System Diagnostic Recap to SkedBot inbox.")
+                    try:
+                        msg = build_email_message(
+                            recipient_email, subject, plain_body, html_body, pdf_bytes, filename
+                        )
+                        smtp.send_message(msg)
+                        result_entry["sent"] = True  # Only flips to True after actual SMTP send
+                        new_fingerprints[skey] = fingerprint
+                        print(f"[{date_str}] Sent schedule email ({idx}/{len(roster)}) — Status: {status_tag}")
+                    except Exception as e:
+                        result_entry["error"] = str(e)  # full detail goes only to the private diagnostic email
+                        # Log only the exception type: SMTP errors can echo the recipient address
+                        print(f"[{date_str}] ERROR sending schedule email ({idx}/{len(roster)}): {type(e).__name__}")
 
-        if not is_manual_test and not force_diagnostic:
+                    delivery_results.append(result_entry)
+
+                students_loop_completed = True
+
+                # Send Diagnostic Recap to SkedBot inbox on normal daily runs OR when force_diagnostic is True
+                if not is_manual_test or force_diagnostic:
+                    diag_subj, diag_plain, diag_html = build_diagnostic_recap_email(
+                        now=now,
+                        target_dt=target_dt,
+                        pdf_hash=pdf_hash,
+                        pdf_size_bytes=len(pdf_bytes),
+                        page_count=extracted_pdf["page_count"],
+                        is_update=is_update,
+                        extracted_pdf=extracted_pdf,
+                        roster_diag=roster_diag,
+                        delivery_results=delivery_results,
+                    )
+                    if force_diagnostic:
+                        diag_subj = f"[FORCED DIAGNOSTIC] {diag_subj.removeprefix('[DIAGNOSTIC] ')}"
+                    diag_msg = build_email_message(
+                        GMAIL_USER, diag_subj, diag_plain, diag_html, pdf_bytes, filename
+                    )
+                    try:
+                        smtp.send_message(diag_msg)
+                        diagnostic_sent = True
+                        print(f"[{date_str}] Sent System Diagnostic Recap to SkedBot inbox.")
+                    except Exception as e:
+                        run_had_errors = True
+                        print(f"[{date_str}] ERROR sending System Diagnostic Recap: {type(e).__name__}")
+        except Exception as e:
+            run_had_errors = True
+            # Only the exception type: messages can contain recipient addresses (public log)
+            print(f"[{date_str}] ERROR during email processing: {type(e).__name__}")
+
+        # Record the PDF as processed if the student loop finished OR anyone was emailed
+        # (prevents duplicates). If nothing went out at all (e.g. Gmail login failed),
+        # leave it unrecorded so the next run tries again.
+        any_sent = any(r["sent"] for r in delivery_results)
+        if not is_manual_test and not force_diagnostic and (students_loop_completed or any_sent):
             state[date_str] = {"pdf_hash": pdf_hash, "students": new_fingerprints}
             state_modified = True
 
@@ -1590,6 +1610,11 @@ def main():
     if state_modified:
         trimmed_state = dict(sorted(state.items())[-15:])
         save_state(trimmed_state)
+
+    # Fail the Action (GitHub emails the repo owner) only AFTER state.json is saved.
+    # The workflow commits state.json even when this step fails.
+    if run_had_errors:
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

@@ -48,6 +48,9 @@ jobs:
         run: python bot.py
 
       - name: Commit and push updated state.json
+        # Always commit state, even if the bot step failed, so already-emailed
+        # students aren't emailed again on the next run.
+        if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
