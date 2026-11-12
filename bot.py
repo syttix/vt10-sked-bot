@@ -464,20 +464,30 @@ def parse_watch_or_duty_line(line: str, last_name: str) -> dict:
             end_t = "See PDF"
             time_window = "All Day / See PDF"
 
-    names = [m.group(0).strip() for m in re.finditer(NAME_PATTERN, line)]
+    if watch_type == "STANDBY":
+        # e.g. "0800-1200: STANDBY (STUDENT READY ROOM) Luong (NAV4101) Dooley, Herman, Laurel, Manzo (FAM4101)"
+        # Names are a bare comma-separated last-name list, with event codes in parentheses.
+        after = re.split(r"\b(?:STANDBY|STDBY|STBY)\b", line, maxsplit=1, flags=re.IGNORECASE)[-1]
+        loc_match = re.match(r"\s*\(([^)]*)\)", after)
+        location = loc_match.group(1).strip().title() if loc_match else "Squadron / Ready Room"
+        if loc_match:
+            after = after[loc_match.end():]
+        names = re.findall(r"[A-Za-z'\-]+", re.sub(r"\([^)]*\)", " ", after))
+    else:
+        names = [m.group(0).strip() for m in re.finditer(NAME_PATTERN, line)]
+        location = (
+            "Quarterdeck / ASDO Desk"
+            if "ASDO" in watch_type or "SDO" in watch_type
+            else "Squadron / Ready Room"
+        )
+
     student_entry = last_name
     other_personnel = []
     for n in names:
-        if last_name.lower() in n.lower():
+        if re.match(rf"{re.escape(last_name)}\b", n, re.IGNORECASE):
             student_entry = n
         else:
             other_personnel.append(n)
-
-    location = (
-        "Quarterdeck / ASDO Desk"
-        if "ASDO" in watch_type or "SDO" in watch_type
-        else "Squadron / Ready Room"
-    )
 
     return {
         "watch_type": watch_type,
@@ -567,6 +577,28 @@ def build_student_name_regex(last_name: str, first_name: str = "") -> re.Pattern
     return re.compile(pattern, re.IGNORECASE)
 
 
+def build_bare_list_name_regex(last_name: str, first_name: str = "") -> re.Pattern:
+    """
+    Matches a last name inside a bare comma-separated last-name list, e.g.
+    "0800-1200: STANDBY (STUDENT READY ROOM) Luong (NAV4101) Dooley, Herman, Laurel, Manzo"
+    or "LEAVE/TAD: DONOFRIO, MCCLANAHAN, MORGAN". Here the word after a comma is the next
+    student's last name, not a first name, so only a different single-letter initial
+    ("Lee, E" when looking for "Lee, C") rules out a match.
+    """
+    clean_first = re.sub(r"[^A-Za-z]", "", first_name or "")
+    if not clean_first:
+        return re.compile(rf"\b{re.escape(last_name)}\b", re.IGNORECASE)
+    first_init = clean_first[0]
+    return re.compile(
+        rf"\b{re.escape(last_name)}\b(?!\s*,\s*(?!{re.escape(first_init)}\b)[A-Za-z]\b)",
+        re.IGNORECASE,
+    )
+
+
+def is_bare_name_list_line(line: str) -> bool:
+    return line.startswith("LEAVE/TAD:") or bool(re.match(r"^\d{4}-\d{4}:", line))
+
+
 UNSCHEDULED_STATUSES = ("WEEKEND OFF", "PHONE MUSTER", "UNSCHEDULED")
 
 
@@ -575,12 +607,18 @@ def determine_schedule_status(parsed: dict, is_weekend: bool) -> str:
     Returns the primary status tag for the email subject and header badge:
     - Both Flight/Sim/Ground AND Watch -> 'SCHEDULED + WATCH'
     - Only Watch -> 'WATCH'
+    - Standby (and no real watch) -> 'STANDBY' / 'SCHEDULED + STANDBY'
     - Flight/Sim/Ground/Note/Leave -> 'SCHEDULED'
     - Unscheduled Weekend -> 'WEEKEND OFF'
     - Unscheduled Weekday, schedule notes mention muster -> 'PHONE MUSTER'
     - Unscheduled Weekday, no muster note -> 'UNSCHEDULED'
     """
     has_watch = bool(parsed["watches"])
+    duty_tag = (
+        "STANDBY"
+        if parsed["watches"] and all(w["watch_type"] == "STANDBY" for w in parsed["watches"])
+        else "WATCH"
+    )
     has_other_events = any([
         parsed["flights_and_sims"],
         parsed["ground_events"],
@@ -588,9 +626,9 @@ def determine_schedule_status(parsed: dict, is_weekend: bool) -> str:
         parsed["leave_tad"],
     ])
     if has_watch and has_other_events:
-        return "SCHEDULED + WATCH"
+        return f"SCHEDULED + {duty_tag}"
     if has_watch:
-        return "WATCH"
+        return duty_tag
     if has_other_events:
         return "SCHEDULED"
     if is_weekend:
@@ -613,13 +651,14 @@ def parse_student_schedule(extracted_pdf: dict, last_name: str, first_name: str 
     }
 
     name_regex = build_student_name_regex(last_name, first_name)
+    list_name_regex = build_bare_list_name_regex(last_name, first_name)
 
     for logical_lines in extracted_pdf["pages_lines"]:
         current_ground_lines = []
         in_ground_block = False
 
         for line in logical_lines:
-            if line.startswith("LEAVE/TAD:") and name_regex.search(line):
+            if line.startswith("LEAVE/TAD:") and list_name_regex.search(line):
                 parsed["leave_tad"] = True
 
             # Ground Event block start (excludes watch lines like '0730-1530 ASDO ...')
@@ -650,7 +689,8 @@ def parse_student_schedule(extracted_pdf: dict, last_name: str, first_name: str 
                     current_ground_lines.append(line)
                     continue
 
-            if name_regex.search(line):
+            line_regex = list_name_regex if is_bare_name_list_line(line) else name_regex
+            if line_regex.search(line):
                 if re.match(r"^\d{4}\s+\d{4}\s+\d{4}", line):
                     parsed["flights_and_sims"].append(parse_flight_or_sim_line(line, last_name))
                 elif is_watch_or_duty_line(line):
@@ -725,11 +765,12 @@ def build_plain_text_body(target_dt: datetime, parsed: dict, is_update: bool, fi
                 lines.append(f"\n{icon}: {f['raw']}")
 
         for w in parsed["watches"]:
+            is_standby = w["watch_type"] == "STANDBY"
             lines.append(
-                f"\n🛡️ WATCH / DUTY: {w['watch_type']} ({w['location']})\n"
+                f"\n🛡️ {'STANDBY' if is_standby else 'WATCH / DUTY: ' + w['watch_type']} ({w['location']})\n"
                 f"   • Window:     {w['time']}\n"
                 f"   • Assigned:   {w['student']}\n"
-                f"   • Co-Watch:   {w['other_personnel']}\n"
+                f"   • {'Also on SB:' if is_standby else 'Co-Watch:  '} {w['other_personnel']}\n"
                 f"   • Raw Line:   {w['raw']}"
             )
 
@@ -778,11 +819,11 @@ def build_html_body(target_dt: datetime, parsed: dict, is_update: bool, filename
     has_events = status_tag not in UNSCHEDULED_STATUSES
 
     # Dynamic Header Gradient & Badge Colors based on schedule status
-    if status_tag == "WATCH":
+    if status_tag in ("WATCH", "STANDBY"):
         header_bg = "#78350f"
         header_grad = "linear-gradient(135deg, #451a03 0%, #92400e 55%, #b45309 100%)"
         sub_color = "#fde68a"
-        badge_bg, badge_fg, badge_text = "#fef3c7", "#78350f", "WATCH"
+        badge_bg, badge_fg, badge_text = "#fef3c7", "#78350f", status_tag
     elif has_events:
         header_bg = "#004d2c"
         header_grad = "linear-gradient(135deg, #032b19 0%, #005a32 55%, #0d9488 100%)"
@@ -917,6 +958,10 @@ def build_html_body(target_dt: datetime, parsed: dict, is_update: bool, filename
         """)
 
     for w in parsed["watches"]:
+        is_standby = w["watch_type"] == "STANDBY"
+        card_kind = "STANDBY" if is_standby else "DUTY / WATCH"
+        type_label = "Standby" if is_standby else "Watch / Duty"
+        others_label = "Also on Standby" if is_standby else "Co-Watch / Relief"
         cards_html.append(f"""
         <div style="border:1px solid #fcd34d; border-radius:10px; overflow:hidden; margin-bottom:16px; background:#ffffff; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
           <div style="background-color:#78350f; background-image:linear-gradient(135deg, #451a03 0%, #92400e 60%, #b45309 100%); color:#ffffff; padding:12px 16px;">
@@ -924,7 +969,7 @@ def build_html_body(target_dt: datetime, parsed: dict, is_update: bool, filename
               <tr>
                 <td style="color:#ffffff; font-size:17px; font-weight:800; letter-spacing:0.3px;">
                   🛡️ {html.escape(w['watch_type'])}
-                  <span style="font-size:10px; font-weight:700; opacity:0.85; margin-left:6px; text-transform:uppercase; letter-spacing:0.6px;">DUTY / WATCH</span>
+                  <span style="font-size:10px; font-weight:700; opacity:0.85; margin-left:6px; text-transform:uppercase; letter-spacing:0.6px;">{card_kind}</span>
                 </td>
                 <td align="right">
                   <span style="background:#d97706; color:#ffffff; padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700;">
@@ -938,11 +983,11 @@ def build_html_body(target_dt: datetime, parsed: dict, is_update: bool, filename
           <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#fffbeb; border-bottom:1px solid #fde68a; text-align:center;">
             <tr>
               <td width="50%" style="padding:10px 4px; border-right:1px solid #fde68a;">
-                <div style="font-size:10px; font-weight:700; color:#92400e; text-transform:uppercase; letter-spacing:0.5px;">Report / Start</div>
+                <div style="font-size:10px; font-weight:700; color:#92400e; text-transform:uppercase; letter-spacing:0.5px;">{'Report' if is_standby else 'Report / Start'}</div>
                 <div style="font-size:17px; font-weight:800; color:#451a03; margin-top:2px;">{html.escape(w['start'])}</div>
               </td>
               <td width="50%" style="padding:10px 4px;">
-                <div style="font-size:10px; font-weight:700; color:#92400e; text-transform:uppercase; letter-spacing:0.5px;">Relief / End</div>
+                <div style="font-size:10px; font-weight:700; color:#92400e; text-transform:uppercase; letter-spacing:0.5px;">{'Released' if is_standby else 'Relief / End'}</div>
                 <div style="font-size:17px; font-weight:800; color:#451a03; margin-top:2px;">{html.escape(w['end'])}</div>
               </td>
             </tr>
@@ -950,7 +995,7 @@ def build_html_body(target_dt: datetime, parsed: dict, is_update: bool, filename
 
           <table width="100%" cellpadding="8" cellspacing="0" border="0" style="padding:8px 12px; font-size:14px;">
             <tr>
-              <td width="32%" style="color:#64748b; font-weight:600; border-bottom:1px solid #f1f5f9;">Watch / Duty</td>
+              <td width="32%" style="color:#64748b; font-weight:600; border-bottom:1px solid #f1f5f9;">{type_label}</td>
               <td style="color:#0f172a; font-weight:800; border-bottom:1px solid #f1f5f9;">{html.escape(w['watch_type'])} ({html.escape(w['time'])})</td>
             </tr>
             <tr>
@@ -958,7 +1003,7 @@ def build_html_body(target_dt: datetime, parsed: dict, is_update: bool, filename
               <td style="color:#0f172a; font-weight:700; border-bottom:1px solid #f1f5f9;">{html.escape(w['student'])}</td>
             </tr>
             <tr>
-              <td style="color:#64748b; font-weight:600; border-bottom:1px solid #f1f5f9;">Co-Watch / Relief</td>
+              <td style="color:#64748b; font-weight:600; border-bottom:1px solid #f1f5f9;">{others_label}</td>
               <td style="color:#334155; border-bottom:1px solid #f1f5f9;">{html.escape(w['other_personnel'])}</td>
             </tr>
             <tr>
@@ -1162,7 +1207,7 @@ def build_diagnostic_recap_email(
     skipped_count = sum(1 for r in delivery_results if r.get("skipped_unchanged"))
     unsent_count = len(delivery_results) - sent_count - failed_count - skipped_count
     scheduled_count = sum(
-        1 for r in delivery_results if r["status_tag"] in ("SCHEDULED", "WATCH", "SCHEDULED + WATCH")
+        1 for r in delivery_results if r["status_tag"] not in UNSCHEDULED_STATUSES
     )
 
     q = extracted_pdf["questions"]
@@ -1223,7 +1268,7 @@ def build_diagnostic_recap_email(
 
     rows_html = ""
     for r in delivery_results:
-        if "WATCH" in r["status_tag"]:
+        if "WATCH" in r["status_tag"] or "STANDBY" in r["status_tag"]:
             status_badge_color = "#b45309"
         elif r["status_tag"] == "SCHEDULED":
             status_badge_color = "#16a34a"
