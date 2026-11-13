@@ -112,7 +112,7 @@
     }
   },
   "2026-11-14": {
-    "pdf_hash": "e1502ed3374c8bffbb08f19a38dcfba33053d23ea773f1465840f6d21c94e8b9",
+    "pdf_hash": "99409517040342067e0700bd7b9da361b97ed9400500f92dcf77e245c10d7101",
     "students": {
       "0e6c05167e6cadf6": "82b01effe43ee59c",
       "102f28225794563e": "82b01effe43ee59c",
@@ -169,6 +169,36 @@
       "dbbe69ed5b0e0389": "82b01effe43ee59c",
       "f30caf4c2fefa271": "82b01effe43ee59c",
       "fab3432a38a69115": "82b01effe43ee59c"
+    }
+  },
+  "2026-11-16": {
+    "pdf_hash": "923679c58a410c1def0f94a08991035a4cb372ec97c4668e0e8ac345fa87aa8f",
+    "students": {
+      "0e6c05167e6cadf6": "ea1b62cbec1f8630",
+      "102f28225794563e": "4b0d7090ba1ed5bc",
+      "1b5318724a864bb8": "4b0d7090ba1ed5bc",
+      "1edf0e3e939e720d": "e19a232a8e27a117",
+      "2a9adbdcdec1483d": "4b0d7090ba1ed5bc",
+      "41ccdd00b081dd05": "04295d87e5beaea0",
+      "7b9d8dfae8fa4b16": "07361697464e6ee5",
+      "80d4666cb008006d": "3255be90b3802d2d",
+      "8ee65a206453de4b": "689223a56bff5ac5",
+      "8fbeec9b58136b18": "4b0d7090ba1ed5bc",
+      "934a1c3e807d71d8": "4b0d7090ba1ed5bc",
+      "94a8ef2bcde7dcb5": "accfc14f1e9b7870",
+      "952470bca84b5b9c": "ea1b62cbec1f8630",
+      "96cb94c10f0ec22c": "9a699e733449de66",
+      "96e1c4122a6c5677": "6b79646cdbe4240a",
+      "a9e4fc500acce100": "f20541d4bddef3ed",
+      "b63dd554234e5299": "fb1bf21b24abe988",
+      "baa58484fa7826cf": "67f1a226aa364932",
+      "bd7d5d0135dc9f6d": "7d314dc35ffe3b9a",
+      "bddc6f37d7e6b544": "9ee5f3fb9e8e3aa6",
+      "c747ded0f4fc57e4": "f0d774edb8962b2f",
+      "d1f65e22aa7db94d": "4b0d7090ba1ed5bc",
+      "dbbe69ed5b0e0389": "6b79646cdbe4240a",
+      "f30caf4c2fefa271": "fd89876cb7518fbc",
+      "fab3432a38a69115": "ea1b62cbec1f8630"
     }
   }
 }
