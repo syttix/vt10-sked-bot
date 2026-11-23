@@ -1,5 +1,4 @@
 {
-  "2026-11-09": "e21266be4aa2406fcb6b474541e51c94ef7c691c5b642a5e136e540fadfbdf4e",
   "2026-11-10": {
     "pdf_hash": "dab36b52db117ece6866fb76154fcfc3e79676962895902a7aea0166c3b95d1a",
     "students": {
@@ -406,6 +405,38 @@
       "dbbe69ed5b0e0389": "d1b7a254dc1f24e0",
       "f30caf4c2fefa271": "0a543000b70326d2",
       "f84a186f2492d783": "8d0505467f707147",
+      "fab3432a38a69115": "ea1b62cbec1f8630"
+    }
+  },
+  "2026-11-24": {
+    "pdf_hash": "cf8bcd5b483afbb29671bfa31a891c71e75b9d107c02685addb1e48570480c51",
+    "students": {
+      "0e6c05167e6cadf6": "377c9a69d3d48cad",
+      "102f28225794563e": "377c9a69d3d48cad",
+      "1b5318724a864bb8": "377c9a69d3d48cad",
+      "1edf0e3e939e720d": "6d1837c8f80da83e",
+      "2a9adbdcdec1483d": "377c9a69d3d48cad",
+      "41ccdd00b081dd05": "1f1152bf3eb53b08",
+      "7b9d8dfae8fa4b16": "2214482a356fd944",
+      "80d4666cb008006d": "ea1b62cbec1f8630",
+      "8ee65a206453de4b": "282f1e7fc02f464a",
+      "8fbeec9b58136b18": "377c9a69d3d48cad",
+      "934a1c3e807d71d8": "377c9a69d3d48cad",
+      "94a8ef2bcde7dcb5": "84fbfcccf09bc130",
+      "952470bca84b5b9c": "377c9a69d3d48cad",
+      "96cb94c10f0ec22c": "ad8aea9910eadcf9",
+      "96e1c4122a6c5677": "c611333b561c755b",
+      "a9e4fc500acce100": "834787f6e842cdd7",
+      "abe464c0b6ea9661": "377c9a69d3d48cad",
+      "b63dd554234e5299": "ea1b62cbec1f8630",
+      "baa58484fa7826cf": "ea1b62cbec1f8630",
+      "bd7d5d0135dc9f6d": "09400f8bd43f5b41",
+      "bddc6f37d7e6b544": "ea1b62cbec1f8630",
+      "c747ded0f4fc57e4": "9b13bf8085943ecc",
+      "d1f65e22aa7db94d": "377c9a69d3d48cad",
+      "dbbe69ed5b0e0389": "c611333b561c755b",
+      "f30caf4c2fefa271": "ea1b62cbec1f8630",
+      "f84a186f2492d783": "377c9a69d3d48cad",
       "fab3432a38a69115": "ea1b62cbec1f8630"
     }
   }
