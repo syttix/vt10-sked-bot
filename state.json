@@ -1,24 +1,4 @@
 {
-  "2026-11-10": {
-    "pdf_hash": "dab36b52db117ece6866fb76154fcfc3e79676962895902a7aea0166c3b95d1a",
-    "students": {
-      "0e6c05167e6cadf6": "ea1b62cbec1f8630",
-      "102f28225794563e": "39539192e68bb42b",
-      "1b5318724a864bb8": "39539192e68bb42b",
-      "1edf0e3e939e720d": "3516f9f69738ee9c",
-      "2a9adbdcdec1483d": "39539192e68bb42b",
-      "7b9d8dfae8fa4b16": "e0f63c3fd9bf434e",
-      "8ee65a206453de4b": "ac3d23ce38b4e187",
-      "8fbeec9b58136b18": "39539192e68bb42b",
-      "934a1c3e807d71d8": "39539192e68bb42b",
-      "96cb94c10f0ec22c": "cd51f3e1e85b9051",
-      "a9e4fc500acce100": "6d6d893e7549175f",
-      "b63dd554234e5299": "a7bcc198bd0008d1",
-      "c747ded0f4fc57e4": "618be0cd10a99b95",
-      "d1f65e22aa7db94d": "39539192e68bb42b",
-      "dbbe69ed5b0e0389": "3085001a664441cc"
-    }
-  },
   "2026-11-11": {
     "pdf_hash": "0038ee7a5536558e8e939ad4aa4d8b01bcd3cb0fa3599e0d8d22a1dfffb76b1d",
     "students": {
@@ -438,6 +418,40 @@
       "f30caf4c2fefa271": "ea1b62cbec1f8630",
       "f84a186f2492d783": "377c9a69d3d48cad",
       "fab3432a38a69115": "ea1b62cbec1f8630"
+    }
+  },
+  "2026-11-25": {
+    "pdf_hash": "ad5571d4ce363931cc95d30afc656cfab506f6499a806926ebb479ace2c6a57b",
+    "students": {
+      "0e6c05167e6cadf6": "82b01effe43ee59c",
+      "102f28225794563e": "82b01effe43ee59c",
+      "1b5318724a864bb8": "82b01effe43ee59c",
+      "1edf0e3e939e720d": "82b01effe43ee59c",
+      "2a9adbdcdec1483d": "86e4a93da62e0207",
+      "41ccdd00b081dd05": "82b01effe43ee59c",
+      "5ac141254e4aa1c3": "82b01effe43ee59c",
+      "7b9d8dfae8fa4b16": "87a7a6b3bb43a471",
+      "80d4666cb008006d": "c32ac362d2d839c1",
+      "8ee65a206453de4b": "82b01effe43ee59c",
+      "8fbeec9b58136b18": "82b01effe43ee59c",
+      "934a1c3e807d71d8": "82b01effe43ee59c",
+      "94a8ef2bcde7dcb5": "e36a86d5978e28b3",
+      "952470bca84b5b9c": "937e0afed6bc9cb3",
+      "96cb94c10f0ec22c": "da316450c04b85d8",
+      "96e1c4122a6c5677": "2bd5473b53d47c2b",
+      "a9e4fc500acce100": "a8cfae5271093d28",
+      "abe464c0b6ea9661": "82b01effe43ee59c",
+      "b63dd554234e5299": "23b52fc566ccdb45",
+      "baa58484fa7826cf": "e36a86d5978e28b3",
+      "bd7d5d0135dc9f6d": "dcef4e7e7ee464cf",
+      "bddc6f37d7e6b544": "aeaf74908fb0a9aa",
+      "c747ded0f4fc57e4": "57ed70a9ff7bae27",
+      "d1f65e22aa7db94d": "82b01effe43ee59c",
+      "dbbe69ed5b0e0389": "2bd5473b53d47c2b",
+      "edb1d48d7e6521c8": "82b01effe43ee59c",
+      "f30caf4c2fefa271": "82b01effe43ee59c",
+      "f84a186f2492d783": "69605ac3a3c9acca",
+      "fab3432a38a69115": "82b01effe43ee59c"
     }
   }
 }
